@@ -25,7 +25,16 @@
         "role": "system"
       },
       "backstory": "Optional deeper backstory. Not always sent to the model depending on preset.",
-      "appearance": "Physical description — important for selfie generation and sprite/image generation. Be concrete: height, build, hair, eye color, typical clothing."
+      "appearance": "Physical description — important for selfie generation and sprite/image generation. Be concrete: height, build, hair, eye color, typical clothing.",
+      "nameColor": "",
+      "dialogueColor": "",
+      "boxColor": "",
+      "conversationStatus": "online",
+      "rpgStats": {
+        "enabled": false,
+        "attributes": [],
+        "hp": { "value": 0, "max": 0 }
+      }
     },
     "character_book": null
   }
