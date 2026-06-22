@@ -161,7 +161,7 @@ A `superRefine` enforces that a global lorebook (`isGlobal: true`) **cannot also
 
 ## Token Budget Management
 
-The lorebook's `tokenBudget` caps total injected content per turn. If more entries match than fit, higher-priority entries win (ordered by `order` first, then entry length / internal logic).
+The lorebook's `tokenBudget` caps total injected content per turn. If more entries match than fit, lower-`order` entries inject first (constant entries and group weighting also factor in); entries that don't fit are skipped — the World Info Inspector surfaces which were budget-skipped (a 1.6/2.0 visibility feature).
 
 **Practical sizing:**
 - For casual characters: 500–1000 tokens budget.
@@ -185,7 +185,7 @@ If `recursiveScanning` is true, the content of activated entries is itself scann
 
 ## Knowledge Retrieval Agent (Semantic Matching)
 
-The `knowledge-retrieval` agent (in `packages/server/src/services/agents/knowledge-retrieval.ts`) does **embedding-based semantic search** across lorebook entries. This is complementary to keyword matching — it catches cases where the user talks about a concept without using the exact trigger word.
+The `knowledge-retrieval` agent (in `packages/server/src/services/agents/knowledge-retrieval.ts`) does **embedding-based semantic search** (local `all-MiniLM-L6-v2` embeddings) across lorebook entries. This is complementary to keyword matching — it catches cases where the user talks about a concept without using the exact trigger word.
 
 Enable via: create a `knowledge_retrieval` agent in the Agents panel. It runs pre-generation and injects semantically matched entries.
 

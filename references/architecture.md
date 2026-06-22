@@ -1,6 +1,6 @@
 # Marinara Engine: Architecture Overview
 
-Marinara Engine is a local-first AI roleplay and chat frontend. Users run it on their own machine (Windows installer, Docker, Node.js clone, or Termux on Android), plug in their own AI API keys (OpenAI, Anthropic, Google, OpenRouter, Mistral, Cohere, or any OpenAI-compatible endpoint), and chat with AI characters.
+Marinara Engine is a local-first AI roleplay and chat frontend. Users run it on their own machine (Windows installer, Docker, Node.js clone, or Termux on Android), plug in their own AI API keys (OpenAI, Anthropic, Google, xAI, OpenRouter, Mistral, Cohere, or any OpenAI-compatible endpoint), and chat with AI characters.
 
 Repo: https://github.com/Pasta-Devs/Marinara-Engine
 Built by SpicyMarinara & Pasta-Devs. License: AGPL-3.0.
@@ -119,7 +119,7 @@ For a roleplay turn, the system prompt is assembled roughly as:
 
 For conversation mode, assembly is simpler: system prompt (mode-specific framing + character card) + name lists + fetched context + message history.
 
-The assembly lives in `packages/server/src/routes/generate.routes.ts` (6,800+ lines) and `packages/server/src/routes/generate/` helpers. It is **not user-extensible without forking**.
+The assembly lives in `packages/server/src/routes/generate.routes.ts` (~10,800 lines) and `packages/server/src/routes/generate/` helpers. It is **not user-extensible without forking**.
 
 ## Data Storage
 
@@ -152,13 +152,13 @@ All under `/api/*`:
 - `/api/conversation` — schedule, status, autonomous message checks
 - `/api/encounter` — combat init/action/summary
 - `/api/professor-mari/workspace` — Professor Mari's workspace agent: AI-assisted creation of characters/personas/lorebooks/chats. **This replaced the standalone `/api/character-maker`, `/api/lorebook-maker`, and `/api/persona-maker` routes, which were removed in v2.0.**
-- `/api/bot-browser/*` — import from Chub, CharacterTavern, JannyAI, Pygmalion, Wyvern
+- `/api/bot-browser/*` — import from Chub, CharacterTavern, JannyAI, Pygmalion, Wyvern, DataCat
 
 Full list in `docs/FRONTEND.md`.
 
 ## Providers Supported
 
-- OpenAI, Anthropic, Google, Mistral, Cohere, OpenRouter, NanoGPT
+- OpenAI (incl. ChatGPT subscription), Anthropic (incl. Claude subscription), Google (Gemini + Vertex AI), xAI (Grok), Mistral, Cohere, OpenRouter, NanoGPT
 - Any custom OpenAI-compatible endpoint (use "Custom" provider)
 - Local Model runtime: a **llama.cpp sidecar** (MLX on macOS Apple Silicon) that runs downloadable local models — including the built-in **Gemma 4** option offered on the Local Model card. When the native-tool-calls toggle is on it launches `llama-server` with `--jinja`, giving **OpenAI-compatible native tool calling**; useful both for offloading tracker/scene-analysis work and for running custom tools locally
 - Image gen: Pollinations, Stability AI, Together AI, NovelAI, ComfyUI (with custom workflows), AUTOMATIC1111
