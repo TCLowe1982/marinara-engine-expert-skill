@@ -191,10 +191,12 @@ There's no central marketplace yet. Distribution is manual — a JSON payload or
 - Extensions can be enabled/disabled individually.
 - They're **persisted server-side** (`/api/extensions`) and sync across sessions; any legacy localStorage entries are migrated once on load.
 
+**Professor Mari can build extensions and themes for you.** Her Home-screen *workspace agent* (Pi-backed) can create/edit browser extensions, custom themes, agents, and custom tools via a `mari` CLI (`mari db` over `installed_extensions`/`agent_configs`/`custom_tools`, `mari themes`), asking for browser approval before database changes. So "make me an extension that does X" is a viable in-app path, not just hand-authoring.
+
 ## Common Patterns
 
 ### Theme/style tweaks
-CSS-only. Target the existing class names (visible via browser DevTools). Respect the CSS custom properties in `globals.css` for consistency with the app's theming system.
+**Check Settings → Appearance first.** v2.0 made a lot of theming native: app background color + gradient presets, accent color, accent RGB mode, accent pulse, chat text/chrome colors, font family/size, and a one-click "Reset Appearance" — plus a server-synced **custom themes** system (`/api/themes`). Reach for a custom-CSS extension only for structural/DOM changes the native controls can't express. When you do, target existing class names (via DevTools) and respect the CSS custom properties in `globals.css`. (Professor Mari can also create/edit themes and extensions for you — see below.)
 
 ### Behavioral additions
 JS with `addStyle` + `addElement`. Use `observe` to react to chat updates. Keep listeners lightweight — the chat DOM mutates constantly during streaming.
