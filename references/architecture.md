@@ -48,7 +48,7 @@ A keyword-triggered knowledge base. Entries have `keys` (trigger words), `conten
 See `references/lorebooks.md`.
 
 ### Preset
-A full prompt configuration for roleplay chats. Controls the order and content of system prompt sections, generation parameters (temperature, top-p, max tokens), and optional choice blocks.
+A full prompt configuration. Controls the order and content of system prompt sections, generation parameters (temperature, top-p, max tokens), and optional choice blocks. The default is **Marinara's Universal Preset v12** (`packages/server/src/db/default-preset.json`), and as of v2.0 presets carry prompts for **Conversation and Game modes** too, not just roleplay.
 
 ### Connection
 An API configuration pointing at an LLM provider: provider name, API key (encrypted at rest with AES-256), model, base URL, max context length. Users need at least one connection to chat. Per-chat overrides are supported.
@@ -85,8 +85,9 @@ Discord-style DMs. Casual text, no asterisks, no narration. Characters have:
 - **Selfies** — characters can emit `[selfie]` to generate a selfie-style image
 - **Memory commands** — characters can send memories to other characters via `[memory: target="..."]`
 - **Scenes** — conversation characters can initiate temp roleplay chats via `[scene: ...]`
+- **Turn games (UNO)** — v2.0 added UNO/turn-game support for Conversation chats: in-character setup flow, bot turns, and board state (route `/api/turn-games`)
 
-Group DMs are supported — a Response Orchestrator agent picks who speaks next.
+Group DMs are supported — the engine picks who speaks next.
 
 ### Roleplay Mode 🎭
 Traditional creative-writing roleplay. Rich narration, prose. Supports:
@@ -97,8 +98,8 @@ Traditional creative-writing roleplay. Rich narration, prose. Supports:
 - Time-of-day lighting (dawn, day, dusk, night)
 - Game HUD with character stats, quests, world state
 
-### Game Mode 🎮 (coming soon, partially live in v1.5.x)
-Roleplay + JRPG game loop. The model acts as GM; the engine handles mechanics. State machine with `exploration`, `dialogue`, `combat`, `travel_rest`. Tactical combat UI, dice rolls, skill checks, reputation, elemental reactions, quest tracking, auto-journaling.
+### Game Mode 🎮
+A shipped mode (v2.0) — Roleplay + JRPG game loop. The model acts as GM; the engine handles mechanics. State machine with `exploration`, `dialogue`, `combat`, `travel_rest`. Tactical combat UI, dice rolls, skill checks, reputation, elemental reactions, quest tracking, auto-journaling. v2.0 also added a Roleplay HUD / Tracker Panel with **editable field locks** (manually pinned tracker values survive generated updates), **Game-Mode custom-agent selection** in Chat Settings, a setup wizard, and checkpoint restore. Routes: `/api/game`, `/api/game-assets`.
 
 ## Prompt Assembly (Simplified)
 
@@ -115,7 +116,9 @@ For a roleplay turn, the system prompt is assembled roughly as:
    - Agent injections (from pre-generation agents)
 2. **Recent message history** — the chat's last N messages
 3. **Depth-injected prompts** — special prompts inserted at specific depths in the history
-4. **Final instructions / post-history instructions**
+4. **Post-history instructions** — note (v2.0): post-history *system* sections are now injected as **user-side** content at a configured depth (preserving metadata) rather than glued onto the pre-history system prompt
+
+**v2.0 prompt-assembly changes worth knowing:** max-context enforcement prioritizes non-history material first and *then* windows recent history (preserving response/free-token headroom); assistant **prefill steering** seeds the generated message with the configured prefill; and **visible tracker context** is included. (CHANGELOG [2.0.0].)
 
 For conversation mode, assembly is simpler: system prompt (mode-specific framing + character card) + name lists + fetched context + message history.
 
@@ -151,6 +154,8 @@ All under `/api/*`:
 - `/api/scene` — create/plan/conclude scene branches
 - `/api/conversation` — schedule, status, autonomous message checks
 - `/api/encounter` — combat init/action/summary
+- `/api/game`, `/api/game-assets` — Game Mode loop and per-game asset management
+- `/api/turn-games` — Conversation turn games (UNO)
 - `/api/professor-mari/workspace` — Professor Mari's workspace agent: AI-assisted creation of characters/personas/lorebooks/chats. **This replaced the standalone `/api/character-maker`, `/api/lorebook-maker`, and `/api/persona-maker` routes, which were removed in v2.0.**
 - `/api/bot-browser/*` — import from Chub, CharacterTavern, JannyAI, Pygmalion, Wyvern, DataCat
 
