@@ -15,6 +15,7 @@ A **lorebook** is a container with:
 - `recursiveScanning` — if true, activated entries' content is itself scanned for more triggers
 - `maxRecursionDepth` — cap on recursion (default 3, max 10)
 - Scope: `isGlobal`, per-character (`characterId` / `characterIds[]`), per-persona (`personaId` / `personaIds[]`), or per-chat (`chatId` / `scope` object) — see the Scope section below
+- Also: `entryLimit`, `imagePath`, `tags`, a whole-lorebook `excludeFromVectorization` ("No Vector"), and provenance (`generatedBy`, `sourceAgentId`)
 
 An **entry** is the actual knowledge chunk with:
 - `name` — human-readable label
@@ -63,6 +64,21 @@ From `createLorebookEntrySchema`:
 | `dynamicState` | object | `{}` | Per-chat mutable state. |
 | `activationConditions` | array | `[]` | Game-state gates (`field`, `operator`, `value`). |
 | `schedule` | object | `null` | Time/date/location gating for game mode. |
+| `description` | string | `""` | Optional entry description (UI only). |
+| `excludeFromVectorization` | bool | `false` | "No Vector" — skip this entry in semantic embedding. |
+| `excludeRecursion` | bool | `false` | This entry can't be activated *by* recursion. |
+| `delayUntilRecursion` | bool | `false` | This entry only activates *during* recursion. |
+| `folderId` | string | `null` | Folder this entry belongs to (a folder can be toggled to gate all its entries). |
+| `characterFilterMode` / `characterFilterIds` | enum / string[] | `"any"` / `[]` | Restrict activation to specific characters. |
+| `characterTagFilterMode` / `characterTagFilters` | enum / string[] | `"any"` / `[]` | Restrict by character tags. |
+| `generationTriggerFilterMode` / `generationTriggerFilters` | enum / string[] | `"any"` / `[]` | Restrict by generation trigger (see Trigger types below). |
+| `additionalMatchingSources` | string[] | `[]` | Also scan extra fields for keys: character name/description/personality/scenario/tags, persona description/tags. |
+
+## Generation Trigger Types & Folders
+
+Entries can be gated by **which generation triggered them** via `generationTriggerFilters` (+ `generationTriggerFilterMode`): `chat` (Chat reply), `continue`, `autonomous`, etc. Note (1.6/2.0): guided `/guided` and guided manual replies now fire **Chat reply** triggers — so if an entry should fire on guided replies, set its trigger to `chat`, not Continue/Autonomous.
+
+Entries can also live in **folders** (`folderId`); toggling a folder gates every entry inside it. And `additionalMatchingSources` lets an entry's keys also match against character/persona fields (name, description, personality, scenario, tags), not just recent chat messages.
 
 ## Common Entry Patterns
 
@@ -183,13 +199,15 @@ If `recursiveScanning` is true, the content of activated entries is itself scann
 
 **Mitigation:** use `preventRecursion: true` on specific entries to stop them from triggering further chains.
 
-## Knowledge Retrieval Agent (Semantic Matching)
+## Knowledge Retrieval, Router & Sources (Semantic Matching)
 
-The `knowledge-retrieval` agent (in `packages/server/src/services/agents/knowledge-retrieval.ts`) does **embedding-based semantic search** (local `all-MiniLM-L6-v2` embeddings) across lorebook entries. This is complementary to keyword matching — it catches cases where the user talks about a concept without using the exact trigger word.
+Three related v2.0 surfaces handle "the user mentioned a concept without the exact keyword":
 
-Enable via: create a `knowledge_retrieval` agent in the Agents panel. It runs pre-generation and injects semantically matched entries.
+- **Knowledge Retrieval** (`knowledge-retrieval` built-in agent, pre-generation) — embedding-based semantic search (local `all-MiniLM-L6-v2` embeddings) over selected lorebooks **and uploaded knowledge-source files**; injects the relevant matches. Complementary to keyword matching.
+- **Knowledge Router** (`knowledge-router` built-in agent, pre-generation) — a lower-cost alternative that **selects relevant lorebook entries by ID** and injects them directly, rather than doing full embedding search.
+- **Knowledge Sources** (`/api/knowledge-sources`) — upload text files / PDFs that the Knowledge Retrieval agent can scan alongside lorebooks.
 
-**Requirements:** entries need to be embedded (happens automatically when the agent is configured).
+**Embeddings:** entries are embedded via a configured **embedding connection** (e.g. the Local Model sidecar's `/api/sidecar/v1/embeddings`); per-entry `excludeFromVectorization` (and the lorebook-level "No Vector") opt entries out. Embedding isn't purely automatic — it depends on having an embedding source configured.
 
 ## Activation Conditions (Game-State Gating)
 
