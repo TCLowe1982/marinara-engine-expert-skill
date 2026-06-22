@@ -398,7 +398,6 @@ This avoids the stacking failure mode where one agent juggles three PRs and rush
 
 ```bash
 pnpm install              # first time or after dependency changes
-pnpm db:push              # sync SQLite schema
 pnpm dev                  # runs shared build, then server + client with HMR
 pnpm check                # lint + production build (CI runs this)
 pnpm version:check        # version-bearing files must match root package.json (CI runs this)
@@ -421,10 +420,12 @@ The Marinara root version lives in `package.json`. When that changes, **all** of
 | `packages/client/package.json` | Derived workspace version |
 | `packages/server/package.json` | Derived workspace version |
 | `packages/shared/package.json` | Derived workspace version |
+| `packages/client/public/manifest.json` | PWA web-manifest version |
 | `packages/shared/src/constants/defaults.ts` | `APP_VERSION` constant used by app + update checks |
 | `win/installer/installer.nsi` | Windows installer output version |
 | `win/installer/install.bat` | Windows installer banner text |
 | `android/app/build.gradle` | Android `versionName` AND `versionCode` |
+| `README.md` | "Current stable release" line |
 
 **Android rule:** `versionName` must match the app version. `versionCode` must increase monotonically for every shipped APK — never reuse, never decrement.
 
