@@ -145,13 +145,13 @@ export default {
 - Return huge blobs of HTML or raw text.
 - Return stack traces or internal IDs the model shouldn't expose.
 - Put API keys in the URL query string (they'll be stored plaintext in Marinara's DB).
-- Take longer than 10 seconds — the engine times out.
+- Take longer than the custom-tool timeout (60s by default, `CUSTOM_TOOL_TIMEOUT_MS`) — the engine aborts the call. Keep typical latency low; the model waits on it.
 
 ## 5. Testing
 
 1. Create the tool in Marinara with `executionType: "static"` and `staticResult: "{ \"test\": true }"`.
 2. Chat with the character and ask a question that should trigger the tool. Verify the model calls it.
-3. Switch to `webhook` and point at your backend (use `localhost:3100` or similar during dev — Marinara runs locally too, so loopback works).
+3. Switch to `webhook` and point at your backend. **Webhook URLs must be HTTPS, and loopback/private hosts are blocked by default** — a plain `http://localhost:3100` is rejected. For local dev, either start the server with `WEBHOOK_LOCAL_URLS_ENABLED=true`, or expose the backend over HTTPS (e.g. a Tailscale/ngrok-style tunnel).
 4. Watch your backend logs. Iterate on the schema description until call quality is good.
 
 ## 6. Security Notes
@@ -159,6 +159,7 @@ export default {
 - **Marinara is local-first.** Your webhook URL is stored in the user's local SQLite DB. Not exposed externally.
 - **Don't trust tool arguments blindly.** The model can and will hallucinate values. Validate in your backend.
 - **Auth:** if your backend is remote, add authentication. Options: shared secret header (you set it in Marinara? you can't — so hardcode in backend), IP allowlist, or proxy through a local tunnel like Tailscale.
+- **HTTPS-only + no local targets by default.** The server makes the call through an SSRF-hardened fetch that allows only `https:` and blocks loopback/private/reserved IPs unless `WEBHOOK_LOCAL_URLS_ENABLED=true`. Responses are capped at 512KB.
 - **CORS doesn't apply** — the Marinara server (not browser) makes the request. No preflight, no CORS headers needed.
 
 ## 7. Common Patterns
