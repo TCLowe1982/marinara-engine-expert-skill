@@ -48,42 +48,40 @@ Runs **after** the main model finishes. Receives the generated message and can e
 
 **Cost:** Adds latency after generation finishes but before results fully settle.
 
-## Built-In Agents (as of recent versions)
+## Built-In Agents
 
-There are ~25 built-in agents. The README groups them by role; here they are by phase.
+There are **21 built-in agents** (registry: `packages/shared/src/features/agents/agent-registry.generated.ts`; canonical ids in `BUILT_IN_AGENT_IDS`, `packages/shared/src/types/agent.ts`). Listed by phase, with the `id` you reference in config and the display name.
 
-### Pre-Generation
-- **prose-guardian** — Analyzes recent messages for repetition, picks rhetorical devices to use/avoid, enforces sentence variety, rotates sensory channels. Heavy but powerful for literary quality.
-- **narrative-director** — Injects pacing directives, dramatic beats, cliffhangers, scene transitions.
-- **continuity-checker** — Flags contradictions with established lore and facts. Often run as a reviewer, can be post-processing too.
-- **prompt-reviewer** — Scores and reviews the assembled prompt, suggests improvements.
-- **knowledge-retrieval** — Semantic search across lorebook entries; injects matches pre-generation. This is the closest thing to traditional RAG in the engine.
-- **schedule-planner** — Generates/maintains character weekly schedules for conversation mode.
-- **immersive-html** — Renders custom HTML/CSS widgets in messages (for creative formatting).
-- **response-orchestrator** — For group chats, decides which character speaks next.
+> **Retired — don't reference these:** `prompt-reviewer`, `response-orchestrator`, `schedule-planner`, `chat-summary`, `autonomous-messenger`, `youtube`, `secret-plot-driver` are in `RETIRED_BUILT_IN_AGENT_IDS` and are no longer built-ins. (Chat summary survives only as a prompt constant, not an agent.)
+
+### Pre-generation
+- **`director`** (Narrative Director) — pacing directives, dramatic beats, scene transitions.
+- **`knowledge-retrieval`** (Knowledge Retrieval) — embedding-based semantic search across lorebook entries / knowledge sources; closest thing to traditional RAG.
+- **`knowledge-router`** (Knowledge Router) — lower-cost RAG alternative: selects relevant lorebook entries by ID and injects them directly.
+- **`html`** (Immersive HTML) — formats messages with custom HTML/CSS. `runtimeDisabled`: it injects formatting into the last user prompt rather than running as a separate agent call.
 
 ### Parallel
-- **echo-chamber** — Simulates a live-stream chat or sidebar reactions; absent characters react to the scene.
-- **illustrator** — Generates images based on story scenes via an image provider.
-- **combat** — Handles turn-based combat mechanics, dice rolls, encounters.
-- **autonomous-messenger** — Manages characters sending messages unprompted in conversation mode.
+- **`echo-chamber`** (Echo Chamber) — absent characters / sidebar reactions to the current scene.
+- **`combat`** (Combat) — turn-based combat mechanics computed alongside narration.
 
-### Post-Processing
-- **consistency-editor** — Edits the generated response to fix factual errors and tracker contradictions. Can make surgical corrections.
-- **world-state** — Extracts date, time, location, weather, temperature from narration.
-- **expression-engine** — Picks character sprite expressions based on emotional content.
-- **quest-tracker** — Manages quest objectives, completion, rewards.
-- **background** — Picks the appropriate background image for the current scene.
-- **character-tracker** — Tracks which characters are present and their moods, relationships, appearance, outfit, stats.
-- **persona-stats** — Updates player and character RPG stats.
-- **custom-tracker** — User-defined tracking (any JSON data the user wants to monitor).
-- **lorebook-keeper** — Auto-generates lorebook entries from ongoing story (writes back to the lorebook).
-- **chat-summary** — Rolling conversation summaries for long-term context.
-- **spotify-dj** — Suggests thematic music/playlists for the scene mood.
-- **cyoa-choices** — Generates 2–4 in-character choices after each response.
-- **love-toys-control** — Controls Buttplug.io haptic devices (yes, really).
+### Post-processing
+- **`prose-guardian`** (Prose Guardian) — repetition analysis, rhetorical-device selection, sentence variety, sensory rotation. *Phase-locked to post_processing.*
+- **`continuity`** (Continuity Checker) — flags/repairs contradictions with established lore. *Phase-locked to post_processing.*
+- **`world-state`** (World State) — tracks date/time, weather, location, and present characters.
+- **`character-tracker`** (Character Tracker) — present characters, moods, relationships, appearance/outfit, stats.
+- **`custom-tracker`** (Custom Tracker) — user-defined tracking (any JSON state).
+- **`persona-stats`** (Persona Stats) — updates player/character RPG stats.
+- **`quest`** (Quest Tracker) — quest objectives, completion, rewards.
+- **`expression`** (Expression Engine) — picks character sprite expressions from emotional content.
+- **`background`** (Background) — picks/generates the scene background image.
+- **`illustrator`** (Illustrator) — generates scene illustrations via an image provider (default `runInterval: 5`).
+- **`lorebook-keeper`** (Lorebook Keeper) — auto-writes lorebook entries from the ongoing story.
+- **`card-evolution-auditor`** (Card Evolution Auditor) — proposes character-card edits for user approval.
+- **`spotify`** (Music DJ) — suggests/controls music for the scene; supports both Spotify and YouTube via the `musicProvider` setting.
+- **`cyoa`** (CYOA Choices) — generates in-character choices after a response.
+- **`haptic`** (Haptic Feedback) — drives haptic devices via Intiface Central running locally.
 
-Each has a default prompt template in `packages/shared/src/constants/agent-prompts.ts`. **Users can override any template** via the Agent Editor.
+Each built-in has a default prompt template in `packages/shared/src/constants/agent-prompts.ts`. **Users can override any template** via the Agent Editor.
 
 ## Custom Agents
 
@@ -97,35 +95,30 @@ Users can create their own agents from scratch. The schema:
   phase: "pre_generation" | "parallel" | "post_processing",
   enabled: boolean,
   connectionId: string | null,  // separate LLM connection, optional
+  resultType?: AgentResultType,  // optional; how the agent's output is applied (see below)
+  imagePath: string | null,      // optional avatar/icon for the agent
   promptTemplate: string,    // the system prompt for this agent
   settings: object,          // arbitrary config
 }
 ```
 
-**A custom agent is essentially a scoped LLM call with its own prompt, running in a specific phase.** The agent gets context about the current chat and is expected to return output in a structured form (depending on its `agentResultType`).
+(The runtime `AgentConfig` also carries `id`, `tools`, `toolConfig`, and `createdAt`/`updatedAt`, which the server manages.)
+
+**A custom agent is essentially a scoped LLM call with its own prompt, running in a specific phase.** The agent gets context about the current chat and is expected to return output in a structured form (depending on its `resultType`).
 
 ### Result types (what the agent returns)
 
-From the schema:
-- `game_state_update` — JSON update to world state
-- `text_rewrite` — replacement text for the main message
-- `sprite_change` — sprite expression update
-- `echo_message` — a reaction message shown elsewhere
-- `quest_update` — quest state changes
-- `image_prompt` — a prompt for image generation
-- `context_injection` — plain text to inject into the next generation's context
-- `continuity_check` — flags for continuity issues
-- `director_event` — narrative event directive
-- `lorebook_update` — new/updated lorebook entries
-- `prompt_review` — score + feedback on the assembled prompt
-- `background_change` — change the current background
-- `character_tracker_update` — update tracked character state
-- `persona_stats_update` — update persona stats
-- `chat_summary` — rolling summary text
-- `spotify_control` — Spotify playback action
-- `secret_plot` — hidden plot thread
+From `agentResultTypeSchema` (`packages/shared/src/schemas/agent.schema.ts`). The field is **`resultType`** (optional). The full v2.0 set (26 values):
 
-**The default (and most common) for custom agents is `context_injection`** — the agent returns text, and that text is injected into the next turn's context. This is the flexible option and works for most user-defined agents.
+- *Text / prompt:* `text_rewrite`, `context_injection`, `prompt_patch`
+- *Trackers & cards:* `character_tracker_update`, `custom_tracker_update`, `persona_stats_update`, `character_card_update`, `lorebook_update`
+- *Narrative / continuity:* `continuity_check`, `director_event`, `secret_plot`, `quest_update`
+- *Media / scene:* `image_prompt`, `background_change`, `sprite_change`, `echo_message`, `spotify_control`, `youtube_control`, `haptic_command`, `frontend_theme_update`
+- *Game Mode:* `game_state_update`, `game_state_transition`, `game_master_narration`, `game_map_update`, `party_action`, `cyoa_choices`
+
+**Removed in v2.0:** `chat_summary` and `prompt_review` are no longer result types.
+
+**Most user-defined agents** use `context_injection` (or leave `resultType` unset and just return text to inject) — the flexible option that works for the majority of custom agents.
 
 ### Tool-using agents
 
@@ -200,17 +193,23 @@ For a Regency-era roleplay:
 }
 ```
 
-This would run after every generation, return a structured check, and (if wired to the consistency-editor) trigger rewrites on issues.
+This would run after every generation, return a structured check, and (if wired to a rewrite agent — `continuity` or `prose-guardian`) trigger rewrites on issues.
 
 ## API Endpoints
 
-- `GET /api/agents` — list
-- `POST /api/agents` — create
-- `PATCH /api/agents/:id` — update
-- `PUT /api/agents/:id` — replace
-- `DELETE /api/agents/:id` — delete
-- `POST /api/agents/:id/toggle` — enable/disable
-- Echo message endpoints for managing echo-chamber output
+All under `/api/agents` (`packages/server/src/routes/agents.routes.ts`):
+- `GET /` — list
+- `GET /:id` — one
+- `POST /` — create
+- `PATCH /:id` — update by id
+- `PATCH /type/:agentType` — update a built-in by type
+- `DELETE /:id` — delete
+- `PUT /toggle/:agentType` — enable/disable (note: `PUT` on `/toggle/:agentType`, **not** `POST /:id/toggle`; there is no `PUT /:id` "replace")
+- `POST /:id/image`, `GET /images/file/:filename` — agent avatar/icon
+- `GET /echo-messages/:chatId`, `DELETE /echo-messages/:chatId` — echo-chamber output
+- `GET /runs/:chatId`, `GET /runs/:chatId/custom`, `PATCH /runs/:runId`, `DELETE /runs/:chatId` — agent run records
+- `GET /cadence/:agentType/:chatId` — run-cadence state
+- `GET /memory/:agentType/:chatId`, `DELETE /memory/:agentType/:chatId` — agent memory
 
 ## UI Location
 

@@ -5,6 +5,8 @@
   "phase": "post_processing",
   "enabled": true,
   "connectionId": null,
+  "resultType": "context_injection",
+  "imagePath": null,
   "promptTemplate": "You are [role]. Your job is to [specific task].\n\nYou will receive:\n- The latest assistant message\n- Recent context\n\nOutput format:\nReturn ONLY a JSON object matching this schema:\n{\n  \"field1\": \"string|null\",\n  \"field2\": \"string|null\"\n}\n\nRules:\n1. Be concise.\n2. Only change things the current message actually changes; preserve continuity otherwise.\n3. Use null for fields you genuinely can't determine.\n\nThe message:\n{{message}}",
   "settings": {}
 }
