@@ -15,11 +15,14 @@ Custom tools are the primary modding surface for **giving a character real capab
   webhookUrl: string | null,      // required if executionType is "webhook"
   staticResult: string | null,    // required if executionType is "static"
   scriptBody: string | null,      // required if executionType is "script"
+  includeHiddenContext: boolean,  // default: false; when true, Marinara passes a `context` object (current-turn runtime context) to the webhook body / script sandbox
   enabled: boolean,       // default: true
 }
 ```
 
 When the tool is enabled and the chat is configured to allow tools, the tool is added to the OpenAI-format `tools` array sent to the LLM. The model decides whether and when to call it. Multiple tools can be called in a single turn; the executor runs them sequentially.
+
+**Local models:** native (OpenAI-compatible) tool calling only fires on the local llama.cpp sidecar when it's launched with `--jinja` — gated by the runtime's native-tool-calls toggle (`enableNativeToolCalls`). Without it, custom tools won't be called on a local model even if defined. Frontier provider models call tools normally.
 
 ## Execution Types
 
@@ -46,7 +49,7 @@ The server POSTs `{ tool: <name>, arguments: <args> }` to `webhookUrl` as JSON, 
 - A Discord webhook (limited — one-way notification only, won't return useful data to the model).
 
 **What to implement on your end:**
-1. Accept `POST` with JSON body `{ tool: string, arguments: object }`.
+1. Accept `POST` with JSON body `{ tool: string, arguments: object }` (plus an optional `context` object when the tool has `includeHiddenContext: true`).
 2. Validate and process.
 3. Return JSON. Keep it concise — whatever you return goes into the model's context.
 
@@ -61,6 +64,7 @@ When enabled, the `scriptBody` string is executed via Node's `vm.runInNewContext
 
 **The sandbox exposes ONLY:**
 - `args` — the tool arguments as an object
+- `context` — the current-turn runtime context, or `null` (only populated when the tool has `includeHiddenContext: true`)
 - `JSON` — with `.parse` and `.stringify`
 - `Math`
 - `String`, `Number`, `Date`, `Array`
@@ -118,13 +122,17 @@ The model sees the schema and uses it to generate well-formed arguments. **Descr
 
 ## Built-In Tools (Not Custom, but Same Protocol)
 
-Marinara ships several built-in tools that work the same way:
+Marinara ships ~17 built-in tools that work the same way (the executor switch in `tool-executor.ts`):
 - `roll_dice` — parses dice notation like `"2d6+3"` and returns rolls, sum, total.
-- `update_game_state` — used by the GM in Game Mode to update world state.
-- `set_expression` — used by characters to change their sprite.
-- `trigger_event` — used to trigger in-game events.
+- `update_game_state` — GM updates world state in Game Mode.
+- `set_expression` — character changes its sprite.
+- `trigger_event` — trigger an in-game event.
 - `search_lorebook` — semantic search over lorebook entries.
-- Spotify tools: `spotify_get_playlists`, `spotify_get_playlist_tracks`, `spotify_search`, `spotify_play`, `spotify_set_volume`.
+- `save_lorebook_entry` — write a new lorebook entry.
+- `edit_chat_message` — edit an existing chat message.
+- `read_chat_summary`, `append_chat_summary` — read/append the chat's rolling summary.
+- `read_chat_variable`, `write_chat_variable` — per-chat key/value state.
+- Spotify/music: `spotify_get_playlists`, `spotify_get_playlist_tracks`, `spotify_search`, `spotify_play`, `spotify_set_volume`, `spotify_get_current_playback`.
 
 Custom tools run through the same executor — they just hit the `default` case in the switch that tries the custom tools list.
 
