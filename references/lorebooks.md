@@ -14,7 +14,7 @@ A **lorebook** is a container with:
 - A `scanDepth` — how many recent messages to scan for keywords (default 2)
 - `recursiveScanning` — if true, activated entries' content is itself scanned for more triggers
 - `maxRecursionDepth` — cap on recursion (default 3, max 10)
-- Scope: global, per-character (`characterId`), or per-chat (`chatId`)
+- Scope: `isGlobal`, per-character (`characterId` / `characterIds[]`), per-persona (`personaId` / `personaIds[]`), or per-chat (`chatId` / `scope` object) — see the Scope section below
 
 An **entry** is the actual knowledge chunk with:
 - `name` — human-readable label
@@ -40,13 +40,13 @@ From `createLorebookEntrySchema`:
 | `enabled` | bool | `true` | Master on/off. |
 | `constant` | bool | `false` | **If true, ALWAYS injected** (no keyword needed). Use sparingly. |
 | `selective` | bool | `false` | If true, combines primary and secondary keys via `selectiveLogic`. |
-| `selectiveLogic` | `"and" | "or" | "not"` | `"and"` | How primary and secondary keys combine when `selective`. |
+| `selectiveLogic` | `and`, `and_all`, `or`, `not`, `not_all` | `"and"` | How primary/secondary keys combine when `selective`. `and` = primary + at least one secondary; `and_all` = primary + **all** secondary keys; `or` = either; `not`/`not_all` negate. |
 | `probability` | number | `null` | 0-1 chance of firing even when triggered. |
 | `scanDepth` | number | `null` | Overrides the lorebook's scan depth for this entry. |
 | `matchWholeWords` | bool | `false` | If true, `king` won't match `kingdom`. |
 | `caseSensitive` | bool | `false` | If true, `King` ≠ `king`. |
 | `useRegex` | bool | `false` | Treat `keys` as regex patterns instead of plain strings. |
-| `position` | 0 or 1 | `0` | 0 = before character description, 1 = after. |
+| `position` | 0, 1, or 2 | `0` | 0 = before character description, 1 = after, 2 = inject at message `depth`. |
 | `depth` | number | `4` | How many messages deep to inject (for `@depth` positioning). |
 | `order` | number | `100` | Insertion order within same position/group. Lower = earlier. |
 | `role` | `"system" | "user" | "assistant"` | `"system"` | What role to attribute the injection to. |
@@ -97,7 +97,7 @@ Injected only when any of the keys match recent messages.
 }
 ```
 
-### Selective entry (both primary AND secondary must match)
+### Selective entry (primary AND at least one secondary must match)
 ```json
 {
   "name": "Combat with Kim",
@@ -108,6 +108,8 @@ Injected only when any of the keys match recent messages.
   "content": "In combat, Dr. Kim prefers non-lethal neural disruptors; he won't kill unless cornered."
 }
 ```
+
+Here `selectiveLogic: "and"` means the primary key matched **and at least one** secondary key matched. Use `and_all` if you need **every** secondary key present.
 
 ### Grouped entries (one-of-N weighted lottery)
 ```json
@@ -141,17 +143,21 @@ Once triggered, stays active for 10 more messages even without the keyword repea
 ```
 Fires at most once per chat, then disables itself.
 
-## Scope: Global vs. Per-Character vs. Per-Chat
+## Scope: Global, Character, Persona, Chat
 
-Lorebooks have three scopes, controlled by `characterId` and `chatId`:
-- `characterId = null, chatId = null` — **global**. Attached to all chats where enabled in prompt settings.
-- `characterId = "xyz", chatId = null` — **character-scoped**. Only active in chats that include this character.
-- `chatId = "abc"` — **chat-scoped**. Only active in one specific chat.
+Scope is controlled by several fields on the lorebook (`packages/shared/src/schemas/lorebook.schema.ts`) — **not** by "both ids null":
+- **`isGlobal: true`** — global. Attached to all chats where enabled in prompt settings.
+- **`characterId`** (single) or **`characterIds: []`** (multiple) — character-scoped. Active only in chats including that character. (Use one field or the other, not both.)
+- **`personaId`** (single) or **`personaIds: []`** (multiple) — persona-scoped (new in v2.0). Active when that persona is in use.
+- **`chatId`** plus the **`scope`** object `{ mode: "all" | "disabled" | "specific", chatIds: [] }` — chat targeting.
+
+A `superRefine` enforces that a global lorebook (`isGlobal: true`) **cannot also** target specific characters or personas — pick global *or* scoped.
 
 **When to use which:**
-- World lore, shared universes → global.
+- World lore, shared universes → `isGlobal`.
 - Character's personal memories, backstory depth → character-scoped.
-- Current scene state, one-session-specific plot flags → chat-scoped.
+- Persona-specific knowledge (about the user's role) → persona-scoped.
+- Current scene state, one-session plot flags → chat-scoped.
 
 ## Token Budget Management
 
