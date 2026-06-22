@@ -21,7 +21,7 @@ The user values your opinion. Don't hedge endlessly. Weigh the options honestly,
 Marinara Engine changes frequently (active development, new releases on an irregular cadence). Your bundled reference files are a snapshot. **When uncertainty arises about current behavior, fetch from GitHub before answering.** The user has explicitly asked for this — don't skip it to save time.
 
 - Repo: `https://github.com/Pasta-Devs/Marinara-Engine`
-- Raw file fetch pattern: `https://raw.githubusercontent.com/Pasta-Devs/Marinara-Engine/main/<path>`
+- Raw file fetch pattern: `https://raw.githubusercontent.com/Pasta-Devs/Marinara-Engine/<branch>/<path>` — use `staging` to check current/in-development behavior (active development happens there), `main` for released behavior.
 - When in doubt, check: `CHANGELOG.md`, `README.md`, `docs/FRONTEND.md`, `CONTRIBUTING.md`, and the relevant file under `packages/server/src/`, `packages/client/src/`, or `packages/shared/src/schemas/`.
 
 Announce a fetch briefly ("Let me check the current schema in the repo...") rather than silently doing it. The user likes visibility.
@@ -77,6 +77,8 @@ If the question spans multiple areas (common), read all relevant files before an
 ## Mode A: Ideation
 
 The user wants to build something they'll keep on their own install or distribute themselves — character, lorebook, custom tool, agent, **extension, theme, custom CSS/JS**. **No PR is involved.** None of the contributor-mode rules apply here. Output style: **multiple architecture options with tradeoffs, then a recommendation.**
+
+> **In-app shortcut (v2.0):** for characters, personas, and lorebooks, the user can also ask **Professor Mari** — Marinara's Home-screen assistant — to scaffold them from a plain-language description (she creates cards/personas/lorebooks, optionally with starter entries, and can navigate panels). For simple builds, "ask Mari" often beats hand-authoring JSON; reach for manual authoring when they need precise control or fields Mari doesn't set. The old standalone character/persona/lorebook *maker* modals were **removed in v2.0** — don't tell users to open them.
 
 ### 1. Restate the goal (one sentence)
 Show you understood. If you're unsure about a key detail, ask ONE clarifying question before drafting options — but only if the ambiguity would genuinely change your recommendation. Don't stall.
@@ -234,7 +236,7 @@ If you (the AI) don't have a concrete spec yet, push the user to keep diagnosing
 ### 4. Implement focused
 
 - One PR per logical change. Don't bundle unrelated cleanup into a bug fix.
-- Branch from `main` after syncing upstream. (Personal git remote setup is in your local dev-personal skill if you have one.)
+- Branch from `staging` after syncing upstream — **active development happens on `staging`, not `main`** (per `CONTRIBUTING.md`). **Open PRs against `staging`**: the GitHub UI defaults the base to `main`, so change it when filing. Never target `main` directly — it's the maintainers' release branch. (Note: install/update guides still track `main`, since users install released versions.) (Personal git remote setup is in your local dev-personal skill if you have one.)
 - Keep diffs small. If it grows past ~500 LOC or ~8 files, consider splitting.
 - Run the validation trio before committing:
   - `pnpm check` (lint + production build) — required, CI runs this
@@ -289,9 +291,9 @@ Marinara's maintainers run a separate test install at a different path on a diff
 **Startup sync ritual** — before any new task, sync silently. Only report to the user if something failed or if the pull brought in commits; otherwise just proceed. **Use PowerShell, not git bash** — git bash mangles robocopy's slash flags.
 
 ```powershell
-# 1. Sync dev dir with main
-git -C 'D:\dev\Marinara-Engine' checkout main
-git -C 'D:\dev\Marinara-Engine' pull origin main
+# 1. Sync dev dir with staging (the active development branch; main is release-only)
+git -C 'D:\dev\Marinara-Engine' checkout staging
+git -C 'D:\dev\Marinara-Engine' pull origin staging
 
 # 2. Mirror dev → test (excludes node_modules, .git, .claude, and the test launcher itself)
 robocopy 'D:\dev\Marinara-Engine' '<AppData>\Local\MarinaraEngineTEST' /MIR /XF teststart.bat /XD node_modules .git .claude /NFL /NDL /NP /R:1 /W:1
@@ -447,4 +449,4 @@ Never tag or publish without `pnpm version:check` passing first. Never commit bu
 
 ### When you don't know
 
-If the user asks something specific to current engine state ("does v1.5.5 have feature X yet?", "what fields does CharacterData have on main?", "is this PR going to conflict with the new generate-route refactor?"), fetch from the repo before answering. The bundled references are a snapshot.
+If the user asks something specific to current engine state ("does v1.5.5 have feature X yet?", "what fields does CharacterData have on the latest `staging`?", "is this PR going to conflict with the new generate-route refactor?"), fetch from the repo before answering. The bundled references are a snapshot.

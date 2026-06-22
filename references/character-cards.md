@@ -76,19 +76,22 @@ They have similar fields but serve opposite roles. If the user asks "how do I gi
 
 ## The Professor Mari Pattern
 
-Mari is the built-in assistant (seeded at first run; see `packages/server/src/db/seed-mari.ts`). She's the canonical example of a "does-things" character. Her definition demonstrates:
+Mari is Marinara's built-in assistant (seeded at first run, cannot be deleted; see `packages/server/src/db/seed-mari.ts`). **As of v2.0 she is the Home-screen assistant, not a normal Conversation-mode chat character** — users talk to her from the Home screen, where a Pi-backed *workspace agent* can inspect the local app and request browser approval for database changes (`packages/server/src/services/professor-mari/workspace-agent.service.ts`; route `POST /api/professor-mari/workspace`). Her card is still the canonical example of a "does-things" assistant. Her definition demonstrates:
 
-### Heavy use of `system_prompt` for domain knowledge
-Mari's `system_prompt` is blank in her card, but the server injects a giant `MARI_ASSISTANT_PROMPT` (320+ lines) when she's the active character in a conversation. This prompt has:
+### Heavy use of an injected `system_prompt` for domain knowledge
+Mari's `system_prompt` is blank in her card, but the server injects a large `MARI_ASSISTANT_PROMPT` when she's the active assistant — the injection is gated by the hardcoded `PROFESSOR_MARI_ID` (`generate.routes.ts`). It contains:
 - `<assistant_role>` — framing ("you are not a generic AI, you live inside this app")
 - `<app_knowledge>` — the actual Marinara Engine documentation, XML-tagged by section
-- `<assistant_commands>` — the tools she can emit (more on this below)
+- `<assistant_commands>` — the hidden actions she can emit (below)
 - `<data_access>` — how to use `[fetch: ...]` to load items on demand
 
 **For a custom character with a lot of domain knowledge:** either do what Mari does structurally (large `description` + `system_prompt` with XML-tagged sections) or use a lorebook for the reference material.
 
+### What Mari can actually do (v2.0)
+Her hidden actions are content-creation + navigation helpers, not a generic agent (`docs/PROFESSOR_MARI.md`): create personas, create/update character cards, update personas, create lorebooks (optionally with starter entries), create Conversation/Roleplay chats, navigate to panels/settings tabs, fetch existing items to inspect before advising/editing, and read public Fandom/MediaWiki pages. She is a guide that takes a few *safe* actions — she fetches an item before editing it, and she does **not** run the full Game-Mode setup wizard for you. (Whether she also creates agents/extensions/themes is still being verified against source — see the v2.0 audit.)
+
 ### Command protocol vs. real tool calling
-Mari uses a **custom regex-parsed command protocol** (`[create_persona: ...]`, `[fetch: ...]`, `[navigate: ...]`). This is NOT public — you can't add new meta-commands of your own.
+Mari uses a **custom regex-parsed command protocol** (`[create_persona: ...]`, `[create_character: ...]`, `[fetch: ...]`, `[navigate: ...]`). This is NOT public — you can't add new meta-commands of your own.
 
 **For custom characters that need to do things, use real Custom Tools** (see `references/custom-tools.md`). They're better supported, use proper OpenAI function-calling, and can be integrated with real backends.
 
@@ -96,7 +99,7 @@ Mari uses a **custom regex-parsed command protocol** (`[create_persona: ...]`, `
 Mari's card description is ~280 words and includes voice, quirks, speech patterns, backstory, appearance, and a few behavioral rules. That's a solid starting length — long enough to establish voice, short enough not to dominate the context window.
 
 ### `isBuiltInAssistant: true`
-This flag is Mari-specific and causes the server to inject her special prompt. You can't set it on your own characters — doing so won't trigger any behavior, since the server checks against the hardcoded `PROFESSOR_MARI_ID`.
+This flag is Mari-specific. The special **prompt injection** is gated by the hardcoded `PROFESSOR_MARI_ID` (not by this flag), so setting the flag on your own character won't make the server inject Mari's assistant prompt or turn it into Mari. The flag itself *does* still drive some scenario/prompt handling (e.g. stripping `<assistant_capabilities>` and a conversation-route branch — `character-prompt-context.ts`, `conversation.routes.ts`), so it isn't entirely inert.
 
 ## Recommended Card Structure for Different Use Cases
 
@@ -164,5 +167,5 @@ Characters can have expression sprites for VN-style overlays in roleplay mode. S
 - `DELETE /api/characters/:id` — delete
 - `POST /api/characters/import` — import from PNG or JSON
 - `GET /api/characters/:id/export` — export as JSON or PNG
-- `POST /api/character-maker/generate` — AI-generate a character from a prompt (SSE)
 - `GET /api/characters/groups`, `POST /api/characters/groups` — group CRUD
+- *(AI-assisted character generation moved to `POST /api/professor-mari/workspace` in v2.0; the old `/api/character-maker/generate` route and its maker modal were removed.)*
