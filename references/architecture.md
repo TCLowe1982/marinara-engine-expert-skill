@@ -54,7 +54,7 @@ A full prompt configuration for roleplay chats. Controls the order and content o
 An API configuration pointing at an LLM provider: provider name, API key (encrypted at rest with AES-256), model, base URL, max context length. Users need at least one connection to chat. Per-chat overrides are supported.
 
 ### Agent
-An autonomous LLM sub-system that runs during generation. 25 built-ins plus user-defined custom agents. Each agent has a phase (pre/parallel/post), a system prompt, an optional dedicated connection, and settings. All disabled by default — users enable only what they need.
+An autonomous LLM sub-system that runs during generation. 21 built-ins plus user-defined custom agents. Each agent has a phase (pre/parallel/post), a system prompt, an optional dedicated connection, and settings. All disabled by default — users enable only what they need.
 
 See `references/agents.md`.
 
