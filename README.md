@@ -32,8 +32,32 @@ This structure acknowledges that the alternative — confident-sounding answers 
 ## Included materials
 
 - `SKILL.md` — main skill instructions covering both modes
-- `references/` — six condensed reference files (architecture, character cards, lorebooks, custom tools, extensions, agents, decision guide)
+- `references/` — seven condensed reference files (architecture, character cards, lorebooks, custom tools, extensions, agents, decision guide)
 - `assets/` — JSON and Markdown starter templates for character cards, custom agents, lorebook entries, and webhook tools
+
+## Installing & using the skill
+
+This repository *is* the `marinara-engine-expert` Claude skill (see the `name:` field in `SKILL.md`). To use it, put the repo's contents in a folder named `marinara-engine-expert` inside a Claude **skills directory**:
+
+| Scope | Skills directory |
+|---|---|
+| All your projects on this machine (recommended) | `~/.claude/skills/marinara-engine-expert/` |
+| A single project | `<project>/.claude/skills/marinara-engine-expert/` |
+
+The folder only needs to contain `SKILL.md` (plus `references/` and `assets/`). The cleanest way to install **and** keep it updatable is to clone it into that location and `git pull` for updates:
+
+```bash
+# Global — available in every project on this machine
+git clone https://github.com/<owner>/marinara-engine-expert-skill.git \
+  ~/.claude/skills/marinara-engine-expert
+
+# Pull updates later
+git -C ~/.claude/skills/marinara-engine-expert pull
+```
+
+Restart Claude Code (or reload skills) afterward. The skill then activates automatically when you mention Marinara Engine / Professor Mari / SpicyMarinara, or describe building characters, lorebooks, tools, agents, or extensions — in any project that can see the skills directory.
+
+The extra repo files (`README.md`, `audit/`, etc.) are harmless: Claude Code only loads `SKILL.md` and the files it references.
 
 ## When it activates
 
