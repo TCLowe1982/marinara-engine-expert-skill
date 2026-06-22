@@ -48,7 +48,7 @@ Actions = effects in the world. Creating a file, updating a row in your DB, send
 
 **Fits:** "Look up the WordPress config for client X," "create a character based on this description" (this is literally what Mari does), "compute the optimal grow schedule given these inputs."
 
-**Critical reminder:** The `script` execution type has **no network access, no filesystem, no require()**. Only `args`, `JSON`, `Math`, `String`, `Number`, `Date`, `Array`, `parseInt/parseFloat/isNaN/isFinite`, and a no-op `console.log`. 5-second timeout. If the action needs anything outside pure JS computation, it must be a `webhook`.
+**Critical reminder:** The `script` execution type is **disabled by default** — it only runs if the server sets `CUSTOM_TOOL_SCRIPT_ENABLED=true`. It has **no network access, no filesystem, no require()**. The sandbox exposes only `args`, `context` (when `includeHiddenContext` is set, else `null`), `JSON`, `Math`, `String`, `Number`, `Date`, `Array`, `parseInt/parseFloat/isNaN/isFinite`, and a no-op `console.log`. Timeout is the shared custom-tool timeout (60s default, `CUSTOM_TOOL_TIMEOUT_MS`). If the action needs anything outside pure JS computation, it must be a `webhook`.
 
 See `references/custom-tools.md` for full execution type breakdown.
 

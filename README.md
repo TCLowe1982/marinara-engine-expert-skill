@@ -24,7 +24,7 @@ The skill enforces every rule in CONTRIBUTING.md — server-side logging via Pin
 The skill uses three tiers of authority:
 
 - **References** cover stable conceptual material — what agents are, how the decision hierarchy works, what fields a character card has — that remains consistent across releases.
-- **Live repo lookups** address current features and recent additions. The skill instructs Claude to fetch from `github.com/Pasta-Devs/Marinara-Engine` rather than guess at "does feature X exist in v1.5 yet?"
+- **Live repo lookups** address current features and recent additions. The skill instructs Claude to fetch from `github.com/Pasta-Devs/Marinara-Engine` rather than guess at "does feature X exist in 2.0 yet?"
 - **User input** fills in behavior-level details: when implementing, Claude asks for the concrete spec rather than inferring it.
 
 This structure acknowledges that the alternative — confident-sounding answers built on unverified assumptions about a moving target — is worse.

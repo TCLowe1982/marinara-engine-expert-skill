@@ -177,7 +177,7 @@ Full list in `docs/FRONTEND.md`.
 - **Connected chats** — conversation ↔ roleplay bidirectional links with `<influence>` (conversation → RP) and `<ooc>` (RP → conversation) tags.
 - **Spotify integration** — a Spotify DJ agent can control playback via built-in tools (`spotify_play`, `spotify_search`, etc.) to score the scene.
 - **Discord webhook mirror** — per-chat Discord webhook that mirrors user and AI messages.
-- **Love Toys integration** — Buttplug.io haptic device control via a dedicated agent (yes, really; it's in the README).
+- **Haptics / Love Toys** — the `haptic` agent ("Haptic Feedback") drives devices via Intiface Central (Buttplug protocol) running locally (yes, really; it's in the README).
 
 ## What's NOT Built-In
 
