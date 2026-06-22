@@ -32,13 +32,18 @@ Characters in Marinara Engine follow the **V2 Character Card spec** (`chara_card
     },
     backstory: string,
     appearance: string,
-    // Additional Marinara extensions (passthrough — extras preserved):
+    // Typed Marinara display fields (first-class in the schema, not just passthrough):
     nameColor: string,              // CSS color or gradient for the character's name
-    dialogueColor: string,
-    boxColor: string,
+    dialogueColor: string,          // quoted dialogue is bold + colored with this
+    boxColor: string,               // chat bubble / dialogue box background
     conversationStatus: "online" | "idle" | "dnd" | "offline",
+    rpgStats: {                     // RPG stats toggle + custom attributes
+      enabled: boolean,
+      attributes: { name: string, value: number }[],   // e.g. STR / DEX / CHA
+      hp: { value: number, max: number },
+    },
     isBuiltInAssistant: boolean,    // Mari only
-    // ...and more
+    // (the extensions object still allows arbitrary passthrough keys too)
   },
   character_book: CharacterBook | null,  // embedded lorebook (optional)
 }
@@ -135,10 +140,10 @@ This flag is Mari-specific. The special **prompt injection** is gated by the har
 ## Import/Export
 
 Characters can be imported from:
-- **SillyTavern** — via the built-in migration import (Settings → Import tab), which handles characters, lorebooks, presets, and chat history.
+- **SillyTavern** — granular per-type import (v2.0 improved the mappings): `st-character` (+ inspect/batch), `st-lorebook`, `st-preset`, `st-chat`, plus `st-bulk/scan` + `st-bulk/run` for importing a whole folder at once (all under `/api/import/*`). Handles characters, lorebooks, presets, and chat history.
 - **PNG files with embedded metadata** — the V2 spec standard. Drop the PNG into the Characters panel.
 - **JSON files** — raw V2 card JSON.
-- **Chub.ai, CharacterTavern, JannyAI, Pygmalion, Wyvern** — all searchable from the in-app Bot Browser.
+- **Chub.ai, CharacterTavern, JannyAI, Pygmalion, Wyvern, DataCat** — all searchable from the in-app Bot Browser.
 
 Characters can be exported as:
 - JSON (via the export endpoint)
