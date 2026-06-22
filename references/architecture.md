@@ -68,6 +68,11 @@ Client-side CSS + JS loaded at runtime. Gets a scoped `marinara` API for DOM inj
 
 See `references/extensions.md`.
 
+### Professor Mari (built-in assistant)
+Marinara's built-in assistant, seeded at first run and not deletable. **As of v2.0 she is the Home-screen assistant** (no longer a normal Conversation-mode character): users talk to her from the Home screen, where a Pi-backed *workspace agent* can inspect the local app and — with browser approval for database changes — create content (characters, personas, lorebooks, chats) and navigate panels. She replaced the standalone character/persona/lorebook *maker* modals and their generation routes, removed in v2.0.
+
+See `references/character-cards.md` → The Professor Mari Pattern, and `docs/PROFESSOR_MARI.md`.
+
 ## Chat Modes
 
 Marinara has three chat modes. Each has a different prompt assembly pipeline and UI.
@@ -146,7 +151,7 @@ All under `/api/*`:
 - `/api/scene` — create/plan/conclude scene branches
 - `/api/conversation` — schedule, status, autonomous message checks
 - `/api/encounter` — combat init/action/summary
-- `/api/character-maker`, `/api/lorebook-maker`, `/api/persona-maker` — AI-powered generation of each (SSE)
+- `/api/professor-mari/workspace` — Professor Mari's workspace agent: AI-assisted creation of characters/personas/lorebooks/chats. **This replaced the standalone `/api/character-maker`, `/api/lorebook-maker`, and `/api/persona-maker` routes, which were removed in v2.0.**
 - `/api/bot-browser/*` — import from Chub, CharacterTavern, JannyAI, Pygmalion, Wyvern
 
 Full list in `docs/FRONTEND.md`.

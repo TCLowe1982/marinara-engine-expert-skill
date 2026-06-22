@@ -214,9 +214,9 @@ For time-based gating:
 }
 ```
 
-## AI Lorebook Maker
+## AI-assisted lorebook creation (Professor Mari)
 
-Marinara has a built-in `lorebook-maker` that generates structured entries from a topic prompt. Use the `POST /api/lorebook-maker/generate` endpoint (SSE stream). In the UI: Lorebooks panel → AI generator button.
+> **Changed in v2.0:** the standalone `lorebook-maker` modal and its `POST /api/lorebook-maker/generate` route were **removed**. AI-assisted lorebook creation now goes through **Professor Mari**, Marinara's Home-screen assistant — ask her to "make a lorebook from these notes" and she creates it (optionally with starter entries) via the workspace agent (`POST /api/professor-mari/workspace`). See `references/character-cards.md` → The Professor Mari Pattern. Don't tell users to open a "Lorebook Maker" / "AI generator" button; it no longer exists.
 
 **When to use:** to bootstrap a lorebook from a summary of a setting/world/topic. Don't expect the output to be final — treat it as a draft to edit.
 
@@ -256,8 +256,8 @@ Marinara imports SillyTavern lorebooks/world-info directly via Settings → Impo
 - `POST /api/lorebooks/:id/entries` — create entry
 - `PATCH /api/lorebooks/:id/entries/:entryId` — update entry
 - `DELETE /api/lorebooks/:id/entries/:entryId` — delete entry
-- `POST /api/lorebook-maker/generate` — AI-generate (SSE)
 - `GET /api/lorebooks/:id/export` — export JSON
+- *(AI-assisted lorebook generation moved to `POST /api/professor-mari/workspace` in v2.0; the old `/api/lorebook-maker/generate` route was removed.)*
 
 ## UI Location
 
