@@ -26,7 +26,7 @@ Extensions are loaded by `CustomThemeInjector`, which runs in the client React t
 
 ## The `marinara` Extension API
 
-When a JS extension loads, it's executed via `new Function("marinara", ext.js)`, meaning the extension code has access to a single argument named `marinara` with these methods:
+When a JS extension loads, `CustomThemeInjector` builds an ES-module source, serves it as a `Blob` via `URL.createObjectURL`, and dynamically `import()`s it. The module pulls its `marinara` API from a global registry (`globalThis.__marinaraExtensionApis`) keyed per extension — it is **not** passed as a `new Function` argument. The code runs in module strict mode and gets a `marinara` object with these methods:
 
 ### `marinara.extensionId` / `marinara.extensionName`
 Read-only identifiers for the current extension. Useful for namespacing DOM IDs, storage keys, etc.
@@ -69,6 +69,8 @@ await marinara.apiFetch("/characters", {
 
 **Note:** `Content-Type: application/json` is set by default.
 
+**Denylist:** `apiFetch` blocks `/extensions`, `/extensions/*`, `/admin`, and `/admin/*` (checked against the canonical URL pathname, so encoded traversal like `%2e%2e/admin` is also caught). An extension can't re-install/modify extensions or reach privileged admin routes through it.
+
 ### `marinara.on(target, event, handler)`
 addEventListener with auto-cleanup. `target` is an EventTarget (element, document, window).
 
@@ -105,7 +107,7 @@ marinara.onCleanup(() => ws.close());
 
 ## Writing an Extension
 
-An extension has two string fields — `css` and `js` — both optional but at least one should be present. They're stored in the app's installed-extensions state (`useUIStore.installedExtensions`).
+An extension has two string fields — `css` and `js` — both optional but at least one should be present. **As of v2.0 extensions are persisted server-side** via the `/api/extensions` CRUD routes (`packages/server/src/routes/extensions.routes.ts`). The old client-only `useUIStore.installedExtensions` (localStorage) list is now just a legacy store that's migrated to the server once on load, then cleared.
 
 ### Minimal CSS-only extension
 ```json
@@ -184,11 +186,10 @@ buildFavoritesBar();
 
 ## Installation and Distribution
 
-Extensions don't have a marketplace (as of current versions). Distribution is manual:
-- Users get an extension as a JSON file or pasted CSS/JS.
-- In **Settings → Extensions**, they add the extension with its CSS/JS content.
+There's no central marketplace yet. Distribution is manual — a JSON payload or pasted CSS/JS — and v2.0 adds folder/zip import/export for packaging more complex extensions (covered in the v2.0 additive work).
+- In **Settings → Extensions**, users add the extension with its CSS/JS content.
 - Extensions can be enabled/disabled individually.
-- CSS and JS are stored in the app's state and persist across sessions.
+- They're **persisted server-side** (`/api/extensions`) and sync across sessions; any legacy localStorage entries are migrated once on load.
 
 ## Common Patterns
 
