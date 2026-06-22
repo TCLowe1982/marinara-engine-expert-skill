@@ -160,12 +160,16 @@ Characters can have expression sprites for VN-style overlays in roleplay mode. S
 
 ## API Endpoints
 
-- `GET /api/characters` — list
-- `GET /api/characters/:id` — one character
-- `POST /api/characters` — create
-- `PATCH /api/characters/:id` — update
-- `DELETE /api/characters/:id` — delete
-- `POST /api/characters/import` — import from PNG or JSON
-- `GET /api/characters/:id/export` — export as JSON or PNG
-- `GET /api/characters/groups`, `POST /api/characters/groups` — group CRUD
-- *(AI-assisted character generation moved to `POST /api/professor-mari/workspace` in v2.0; the old `/api/character-maker/generate` route and its maker modal were removed.)*
+Characters (`/api/characters`, non-exhaustive — see `packages/server/src/routes/characters.routes.ts`):
+- `GET /` — list; `GET /:id` — one
+- `POST /` — create; `PATCH /:id` — update; `DELETE /:id` — delete
+- `GET /:id/export` (JSON, with a `format` querystring) **and** `GET /:id/export-png` (PNG with embedded V2 metadata) — these are **two separate endpoints**, not one parameterized export
+- `POST /export-bulk` — bulk export
+- `POST /:id/duplicate`; `GET /:id/versions`, `POST /:id/versions/:versionId/restore`
+- `GET /:id/gallery` (+ `/gallery/upload`, `/gallery/:imageId`), `POST /:id/avatar`, `DELETE /:id/avatar`
+- `POST /:id/embedded-lorebook/import`
+- Groups: `GET /groups/list`, `GET /groups/:id`, `POST /groups`, `PATCH /groups/:id`, `DELETE /groups/:id` (note `/groups/list`, not `GET /groups`)
+
+**Import is a separate router at `/api/import/*`** — there is no `POST /api/characters/import`. Relevant endpoints: `POST /api/import/st-character` (+ `/st-character/inspect`, `/st-character/batch`), `POST /api/import/marinara`, `POST /api/import/marinara-package`, plus `/st-preset`, `/st-lorebook`, `/st-bulk/scan`, `/st-bulk/run` (`packages/server/src/routes/import.routes.ts`).
+
+*(AI-assisted character generation moved to `POST /api/professor-mari/workspace` in v2.0; the old `/api/character-maker/generate` route and its maker modal were removed.)*
