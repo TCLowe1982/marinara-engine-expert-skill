@@ -156,7 +156,7 @@ export default {
 
 ## 6. Security Notes
 
-- **Marinara is local-first.** Your webhook URL is stored in the user's local SQLite DB. Not exposed externally.
+- **Marinara is local-first.** Your webhook URL is stored in the user's local file-native storage (under `DATA_DIR/storage`). Not exposed externally.
 - **Don't trust tool arguments blindly.** The model can and will hallucinate values. Validate in your backend.
 - **Auth:** if your backend is remote, add authentication. Options: shared secret header (you set it in Marinara? you can't — so hardcode in backend), IP allowlist, or proxy through a local tunnel like Tailscale.
 - **HTTPS-only + no local targets by default.** The server makes the call through an SSRF-hardened fetch that allows only `https:` and blocks loopback/private/reserved IPs unless `WEBHOOK_LOCAL_URLS_ENABLED=true`. Responses are capped at 512KB.

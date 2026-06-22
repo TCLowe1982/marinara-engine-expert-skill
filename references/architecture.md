@@ -14,7 +14,7 @@ Built by SpicyMarinara & Pasta-Devs. License: AGPL-3.0.
 └──────────────────────────────┬──────────────────────────────┘
                                │ fetch /api/*
 ┌──────────────────────────────┴──────────────────────────────┐
-│  Server (Fastify, TypeScript, SQLite via Drizzle ORM)       │
+│  Server (Fastify, TypeScript, file-native JSON store)       │
 │  Routes: characters, lorebooks, agents, custom-tools,       │
 │          generate, chats, presets, connections, etc.        │
 │  ↓                                                          │
@@ -27,7 +27,7 @@ Built by SpicyMarinara & Pasta-Devs. License: AGPL-3.0.
 │   ├─ Run parallel agents (images, music, echo reactions)    │
 │   └─ Run post-processing agents (state extraction, editor)  │
 │  ↓                                                          │
-│  SQLite DB: messages, chats, characters, personas,          │
+│  File store: messages, chats, characters, personas,         │
 │  lorebooks, presets, agents, custom-tools, etc.             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -35,7 +35,7 @@ Built by SpicyMarinara & Pasta-Devs. License: AGPL-3.0.
 ## The Core Objects
 
 ### Character
-A persona the user chats with. Follows the V2 character card spec. Stored as JSON in SQLite. Fields include `name`, `description`, `personality`, `scenario`, `first_mes`, `system_prompt`, plus Marinara-specific extensions (appearance, backstory, name/dialogue colors, schedule, etc.). Can be created in the app, imported from SillyTavern, imported from PNG files with embedded metadata, or browsed from Chub.ai via the Bot Browser.
+A persona the user chats with. Follows the V2 character card spec. Stored as JSON in the file-native store (`DATA_DIR/storage`). Fields include `name`, `description`, `personality`, `scenario`, `first_mes`, `system_prompt`, plus Marinara-specific extensions (appearance, backstory, name/dialogue colors, schedule, etc.). Can be created in the app, imported from SillyTavern, imported from PNG files with embedded metadata, or browsed from Chub.ai via the Bot Browser.
 
 See `references/character-cards.md`.
 
@@ -123,7 +123,7 @@ The assembly lives in `packages/server/src/routes/generate.routes.ts` (6,800+ li
 
 ## Data Storage
 
-Single SQLite file (default: `data/marinara-engine.db`). All user data lives here:
+**File-native JSON storage by default** (`STORAGE_BACKEND=files`), under `DATA_DIR/storage` (default `packages/server/data/storage`). SQLite is a **legacy opt-in** (`STORAGE_BACKEND=sqlite`); `DATABASE_URL` is only consulted to import old data when `DATA_DIR/storage` doesn't yet exist. All user data lives in the file store:
 - chats, messages, chat_folders
 - characters, personas, groups, persona_groups
 - lorebooks, lorebook_entries
@@ -131,10 +131,10 @@ Single SQLite file (default: `data/marinara-engine.db`). All user data lives her
 - connections (with encrypted API keys)
 - agents (both built-in configs and custom agents)
 - custom_tools
-- themes
+- themes, extensions
 - gallery (generated images)
 
-Fully local. Backing up = copying the `.db` file. Sharing = exporting individual objects as JSON (characters, presets, lorebooks all have export endpoints).
+Fully local. Backing up = copying the `DATA_DIR/storage` directory (or the whole `DATA_DIR`). Sharing = exporting individual objects as JSON (characters, presets, lorebooks all have export endpoints).
 
 ## API Surface (Key Endpoints)
 
@@ -160,7 +160,7 @@ Full list in `docs/FRONTEND.md`.
 
 - OpenAI, Anthropic, Google, Mistral, Cohere, OpenRouter, NanoGPT
 - Any custom OpenAI-compatible endpoint (use "Custom" provider)
-- Local: Google Gemma 4 E2B built in via MLX sidecar (macOS Apple Silicon) or standard sidecar elsewhere — mainly for tracker agents & scene analysis
+- Local Model runtime: a **llama.cpp sidecar** (MLX on macOS Apple Silicon) that runs downloadable local models — including the built-in **Gemma 4** option offered on the Local Model card. When the native-tool-calls toggle is on it launches `llama-server` with `--jinja`, giving **OpenAI-compatible native tool calling**; useful both for offloading tracker/scene-analysis work and for running custom tools locally
 - Image gen: Pollinations, Stability AI, Together AI, NovelAI, ComfyUI (with custom workflows), AUTOMATIC1111
 
 ## Special Features Worth Knowing

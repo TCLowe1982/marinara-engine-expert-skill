@@ -1,6 +1,6 @@
 # Character Cards
 
-Characters in Marinara Engine follow the **V2 Character Card spec** (`chara_card_v2`), with Marinara-specific extensions. A character is a JSON object stored in SQLite and rendered through the Characters Panel UI.
+Characters in Marinara Engine follow the **V2 Character Card spec** (`chara_card_v2`), with Marinara-specific extensions. A character is a JSON object stored via Marinara's file-native storage (under `DATA_DIR/storage`; SQLite is legacy) and rendered through the Characters Panel UI.
 
 **Source of truth:** `packages/shared/src/schemas/character.schema.ts` and `packages/server/src/db/seed-mari.ts` (the built-in Professor Mari assistant is the canonical example of a complex card).
 
