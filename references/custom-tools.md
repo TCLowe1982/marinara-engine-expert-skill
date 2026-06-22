@@ -34,7 +34,9 @@ Returns a fixed string. Useful for:
 **When to use:** Scaffolding only. Replace with webhook or script before shipping.
 
 ### `webhook` — HTTP POST to a URL
-The server POSTs `{ tool: <name>, arguments: <args> }` to `webhookUrl` as JSON, with a **10-second timeout**. Response body is parsed as JSON if possible, otherwise returned as `{ result: <text> }`.
+The server POSTs `{ tool: <name>, arguments: <args> }` to `webhookUrl` as JSON, with the configurable custom-tool timeout (**60s by default**, override via `CUSTOM_TOOL_TIMEOUT_MS`). Response body is parsed as JSON if possible, otherwise returned as `{ result: <text> }`, and is capped at **512KB**.
+
+**The URL must be HTTPS, and local/private targets are blocked by default.** The request goes through an SSRF-hardened `safeFetch`: only `https:` is allowed, and loopback/private/reserved hosts (`localhost`, `127.0.0.1`, `192.168.x.x`, etc.) are rejected unless the server sets `WEBHOOK_LOCAL_URLS_ENABLED=true`. So a `http://localhost:3100` dev backend won't work out of the box — expose it over HTTPS (e.g. a tunnel) or set `WEBHOOK_LOCAL_URLS_ENABLED=true` for local testing.
 
 **This is the primary integration point for real work.** Use it to connect the character to:
 - Your own backend (Express, Fastify, Cloudflare Worker, Lambda, anything that speaks HTTP).
@@ -53,7 +55,9 @@ The server POSTs `{ tool: <name>, arguments: <args> }` to `webhookUrl` as JSON, 
 **When to use:** Any tool that needs to reach outside the engine. **This is the default recommendation for real functionality.**
 
 ### `script` — Sandboxed server-side JavaScript
-The scriptBody string is executed via Node's `vm.runInNewContext` with a **5-second timeout**. The script runs inside a wrapper: `"use strict"; (function() { <scriptBody> })()`.
+**Disabled by default.** Script execution only runs if the server is started with `CUSTOM_TOOL_SCRIPT_ENABLED=true`; otherwise the call returns `{ error: "Script custom tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true to allow local code execution." }`. Tell the user to set that env var before recommending a script tool.
+
+When enabled, the `scriptBody` string is executed via Node's `vm.runInNewContext` with the shared custom-tool timeout (**60s by default**, via `CUSTOM_TOOL_TIMEOUT_MS`). The script runs inside a wrapper: `"use strict"; (function() { <scriptBody> })()`.
 
 **The sandbox exposes ONLY:**
 - `args` — the tool arguments as an object
@@ -147,7 +151,7 @@ Example — bad:
 - **Keep responses small** — they go into the model's context. Trim to what's needed.
 - **Return errors as structured JSON**: `{ "error": "Site not found", "suggestion": "Check domain spelling" }` — the model can explain these to the user gracefully.
 - **Don't rely on the model to parse HTML** in your response. Parse server-side and return structured fields.
-- **Handle timeouts gracefully on your end** — the server gives up after 10s. Design for < 5s typical latency.
+- **Handle timeouts gracefully on your end** — the server gives up after the custom-tool timeout (60s by default, `CUSTOM_TOOL_TIMEOUT_MS`). Design for low typical latency anyway; the model waits on the call.
 
 ### Parameter schemas
 - **Required fields should be truly required.** If the tool has sensible defaults, mark optional.
