@@ -186,7 +186,7 @@ buildFavoritesBar();
 
 ## Installation and Distribution
 
-There's no central marketplace yet. Distribution is manual — a JSON payload or pasted CSS/JS — and v2.0 adds folder/zip import/export for packaging more complex extensions (covered in the v2.0 additive work).
+There's no central marketplace yet. Distribution is manual — a JSON payload or pasted CSS/JS — and v2.0 adds **folder/zip import/export**: extensions export as a zip with a `marinara-extensions.json` envelope (`kind: "marinara.extension-folder"`) plus per-extension `manifest.json` + `extension.css`/`extension.js`, so a multi-file extension travels as one package (`packages/client/src/lib/extension-transfer.ts`).
 - In **Settings → Extensions**, users add the extension with its CSS/JS content.
 - Extensions can be enabled/disabled individually.
 - They're **persisted server-side** (`/api/extensions`) and sync across sessions; any legacy localStorage entries are migrated once on load.
