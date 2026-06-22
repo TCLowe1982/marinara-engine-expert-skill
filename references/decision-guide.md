@@ -140,7 +140,7 @@ Ask AT MOST ONE before drafting options. Don't block.
 
 1. **"Is the knowledge stable, or does it change?"** — Gates lorebook vs. webhook tool.
 2. **"Do you want the character to *do* things, or just answer?"** — Gates tool-calling vs. pure conversation.
-3. **"Are you running this on a frontier model (Claude, GPT-5, Gemini) or something smaller/local?"** — Affects how much you can offload to the model's native knowledge.
+3. **"Are you running this on a frontier model (Claude, GPT-5, Gemini) or something smaller/local?"** — Affects how much you can offload to the model's native knowledge. *Also gates tool use:* on the local llama.cpp sidecar, native (OpenAI-compatible) tool calling only works when it's launched with `--jinja` (the native-tool-calls runtime toggle). If they're on a local model and want custom tools, they must enable that toggle.
 4. **"Is this a one-off or something you'll maintain long-term?"** — Affects whether to optimize for build speed (card + prompt) or maintainability (lorebook + tools).
 5. **"Do you already have this data somewhere (Google Sheet, DB, API)?"** — Unlocks the webhook path.
 6. **"Is this for you alone, or will others use it?"** — Affects how much UX polish matters (extensions, tool confirmation flows).
