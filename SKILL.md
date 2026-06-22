@@ -66,7 +66,7 @@ Read the relevant reference file before giving architectural advice in that area
 | Lorebooks, keyword triggers, RAG, per-character vs global scope, entry fields, recursion, grouping | `references/lorebooks.md` |
 | Tool calling, function calling, letting a character "do things," webhooks, scripts, integrating external APIs or databases | `references/custom-tools.md` |
 | Client-side modifications, DOM injection, custom CSS, adding UI elements, browser extensions | `references/extensions.md` |
-| Agents — the 25 built-ins, custom agents, phases (pre-gen / parallel / post-proc), overriding agent prompts | `references/agents.md` |
+| Agents — the 21 built-ins, custom agents, phases (pre-gen / parallel / post-proc), overriding agent prompts | `references/agents.md` |
 | High-level overview, how pieces fit together, chat modes, connections, presets | `references/architecture.md` |
 | "Which approach should I use?" — picking between prompt-stuffing, lorebook, tool call, extension, custom agent | `references/decision-guide.md` |
 
