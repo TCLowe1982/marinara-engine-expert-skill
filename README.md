@@ -17,7 +17,7 @@ It also enforces a mandatory pre-submission checklist before any PR is declared 
 
 **Built for beginners too.** The skill is tuned to assume the user may be brand new to coding, git, or development tooling. Before any significant action — opening a file, running a command, branching, editing code — Claude narrates what it's doing and why in plain-language analogies, then pauses so the user can follow along instead of silently batching changes. Concepts like branches, `pnpm check`, agents, and pattern-matching get explained the first time they come up, then dropped if the user demonstrates fluency. The goal: a hobbyist contributor with zero CS background can ship a working PR.
 
-The skill enforces every rule in CONTRIBUTING.md — server-side logging via Pino, link-the-issue PR bodies, in-same-PR doc updates, and version-drift checks across all 8 version-bearing files.
+The skill enforces every rule in CONTRIBUTING.md — server-side logging via Pino, link-the-issue PR bodies, in-same-PR doc updates, and version-drift checks across all 10 version-bearing files.
 
 ## Knowledge architecture
 
