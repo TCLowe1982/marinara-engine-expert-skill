@@ -126,6 +126,18 @@ Agents can call tools too — the agent executor supports tool-calling loops. An
 
 See `packages/server/src/services/agents/agent-executor.ts` for the loop implementation.
 
+### Custom agent capabilities (v2.0)
+Custom agents have an explicit capability model — `CUSTOM_AGENT_CAPABILITY_IDS` (`packages/shared/src/types/agent.ts`): `create_lorebooks`, `edit_lorebooks`, `edit_messages`, `edit_trackers`, `change_frontend_styling`, `trigger_image_generation`, `access_vectors`, `edit_main_prompt`. These gate what an agent is allowed to do and are derived from the agent's `resultType`, its enabled tools, and `settings.customCapabilities`.
+
+### Turn Data Access (v2.0)
+Post-processing agents can **opt in** to see the current turn's data: `preGenInjections` (what pre-generation agents injected) and `parallelResults` (parallel-phase results). It's off by default — only opted-in agents receive it (`AgentContext.preGenInjections` / `parallelResults`).
+
+### Game Mode & mode gating
+v2.0 added **Game-Mode custom-agent selection** in Chat Settings (the picker sits at the bottom of the Agents section). Built-ins are also mode-gated via `modeAllowlist` (e.g. `cyoa`/`combat`/`world-state` → roleplay/visual-novel; `director`/`html` → roleplay-only), so not every agent is offered in every mode.
+
+### Exporting & importing agents (v2.0)
+Custom agents export/import as a single JSON payload **or** as a **folder/zip package** (`packages/client/src/lib/agent-transfer.ts`), so a complex agent can travel with related files/code instead of just one JSON blob.
+
 ## When to Use an Agent vs. Other Surfaces
 
 **Agent** — automatic, per-turn, background.
