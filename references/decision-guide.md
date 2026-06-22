@@ -85,6 +85,8 @@ UI = DOM. Buttons, overlays, custom indicators, theme tweaks, new panels, embedd
 
 **Doesn't fit:** Anything requiring server-side changes (new routes, new DB tables, new agents). Those require forking the engine.
 
+**Check Settings → Appearance before recommending custom CSS for theming.** v2.0 made much theming native — accent color, RGB/pulse, app background + gradients, chat text colors, font, and "Reset Appearance" — plus a server-synced **custom themes** system (`/api/themes`). Use a CSS extension only for structural/DOM tweaks the native controls can't express. (Professor Mari can also generate themes and extensions for you — see `references/extensions.md`.)
+
 See `references/extensions.md` for the API surface.
 
 ---
