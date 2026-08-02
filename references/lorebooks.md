@@ -169,6 +169,10 @@ Scope is controlled by several fields on the lorebook (`packages/shared/src/sche
 
 A `superRefine` enforces that a global lorebook (`isGlobal: true`) **cannot also** target specific characters or personas — pick global *or* scoped.
 
+**(v2.4.0, #4333) Visibility toggle for reimported embedded character lorebooks.** When a character card is imported with an embedded lorebook, that lorebook can now be **hidden from general lorebook searches and selectors while staying linked, active, and editable**. It still works exactly as before in generation — this only removes it from browse/pick lists.
+
+Why it matters for advice: users who bulk-import cards (SillyTavern migrations especially) used to end up with a lorebook list dominated by per-card embedded books, making their own hand-authored lorebooks hard to find. Recommend hiding embedded card lorebooks and leaving only deliberately-authored ones visible. "Hidden" is **not** "disabled" — if a user hides one expecting it to stop firing, correct that.
+
 **When to use which:**
 - World lore, shared universes → `isGlobal`.
 - Character's personal memories, backstory depth → character-scoped.

@@ -52,11 +52,15 @@ See `references/lorebooks.md`.
 ### Preset
 A full prompt configuration. Controls the order and content of system prompt sections, generation parameters (temperature, top-p, max tokens), and optional choice blocks. The default is **Marinara's Universal Preset v12** (`packages/server/src/db/default-preset.json`), and as of v2.0 presets carry prompts for **Conversation and Game modes** too, not just roleplay.
 
+> **⚠️ Vocabulary change (v2.4.0) — get this right.** Reusable **Chat Settings Presets** were renamed **Settings Profiles** throughout Chat Settings, Roleplay quick setup, import/export, localization, and the docs. The word **preset** is now reserved for **prompt presets** (the object described above). A *settings profile* bundles reusable chat configuration; a *prompt preset* shapes system-prompt structure and generation parameters. Existing exported profile files remain importable. Use the correct term when advising — the UI and docs now distinguish them, and saying "preset" for a settings profile will send the user to the wrong panel. Guides: `docs/chats/settings-profiles.md`, `docs/prompts/presets.md`.
+
+*(v2.3.5)* The Chat Settings **Prompt Preset** area was reworked: Roleplay shows the preset-section editor directly once a preset is selected (no collapsible toggle); Conversation and Game show the effective prompt inline — editable in place, expandable to a full window, with a macro browser — and the redundant "open selected preset" shortcut was removed. Chat Settings also remembers which sections you left expanded.
+
 ### Connection
 An API configuration pointing at an LLM provider: provider name, API key (encrypted at rest with AES-256), model, base URL, max context length. Users need at least one connection to chat. Per-chat overrides are supported. Connections can also target **non-LLM media providers** — `image_generation` and `video_generation` (v2.1) — which are handled by the media services, not the LLM provider registry; a video connection can be flagged **"Default for Videos"** as a per-chat fallback. Root-level connections can be reordered by drag or moved into folders via a saved Custom sort order (`connection.ts sortOrder`, `connection-folders.ts sortOrder`) (v2.1). A compact **Defaults** section (v2.2) lets each category — **Main, Agents, Images** (renamed from "Illustrator" in v2.3)**, Videos** — set an optional fallback connection; a failed generation retries once through that category's fallback (with a toast naming the fallback connection/model), while user cancellations and already-streamed partial text are protected from duplicate output.
 
 ### Agent
-An autonomous LLM sub-system that runs during generation. As of v2.3, optional agents are **downloadable packages** installed from the official 29-package catalog (Writer / Tracker / Misc — see "Downloadable Agents (v2.3)" below); **fresh installs contain none**. User-defined **custom agents** remain, and run in Conversation, Roleplay, and Game whenever agents are enabled (v2.3, #3692). Each agent has a phase (pre/parallel/post), a system prompt, an optional dedicated connection, and settings. All disabled by default — users enable only what they need. Each chat also has an **Enable Agents** master toggle (v2.3) gating all agent initialization and model calls: off means no selected agent (including package services) initializes or calls a model; the setting survives upgrades without re-enabling.
+An autonomous LLM sub-system that runs during generation. As of v2.3, optional agents are **downloadable packages** installed from the official **31**-package catalog (Writer / Tracker / Misc — see "Downloadable Agents (v2.3)" below); **fresh installs contain none**. User-defined **custom agents** remain, and run in Conversation, Roleplay, and Game whenever agents are enabled (v2.3, #3692). Each agent has a phase (pre/parallel/post), a system prompt, an optional dedicated connection, and settings. All disabled by default — users enable only what they need. Each chat also has an **Enable Agents** master toggle (v2.3) gating all agent initialization and model calls: off means no selected agent (including package services) initializes or calls a model; the setting survives upgrades without re-enabling.
 
 See `references/agents.md`.
 
@@ -65,8 +69,12 @@ A user-defined function the main chat model can call during generation. Three ex
 
 See `references/custom-tools.md`.
 
-### Extension (removed in v2.3.4)
-The client extension feature (runtime CSS + JS with a scoped `marinara` API) was removed completely in v2.3.4 — see `references/extensions.md` for the removal story and migration paths.
+### Personal Extension (removed v2.3.4 → **reintroduced sandboxed in v2.3.5**)
+The old full-trust client extension feature (runtime CSS + JS with a scoped `marinara` API) was removed in v2.3.4. **v2.3.5 brought extensions back in sandboxed form**, and v2.4.0 expanded them (Browser Extension API v5, host-rendered UI contribution slots, a Full page access compatibility mode for legacy External Extensions).
+
+Browser code runs in a Worker inside an opaque-origin sandboxed iframe with no Marinara DOM, origin, or network access; server code runs in a separate Node process under macOS Seatbelt or Linux Bubblewrap (unavailable on Windows/Android, where it fails closed). Professor Mari authors drafts; only the user can approve the exact SHA-256 hash. Third-party imports live in a separate **External Extensions** section behind two gates (`ENABLE_EXTERNAL_EXTENSIONS=true` plus a Danger Zone opt-in).
+
+Schema: `packages/shared/src/schemas/personal-extension.schema.ts`. Injector: `packages/client/src/components/layout/PersonalExtensionInjector.tsx`. See `references/extensions.md` for the full model — don't answer extension questions from this summary alone.
 
 ### Professor Mari (built-in assistant)
 Marinara's built-in assistant, seeded at first run and not deletable. **As of v2.0 she is the Home-screen assistant** (no longer a normal Conversation-mode character): users talk to her from the Home screen, where a Pi-backed *workspace agent* can inspect the local app and — with browser approval for database changes — create content (characters, personas, lorebooks, chats) and navigate panels. She replaced the standalone character/persona/lorebook *maker* modals and their generation routes, removed in v2.0. As of v2.3, Conversation **About Me** drafting also goes through Mari — the per-editor AI Write controls (with their separate model connection/source settings) were removed; About Me and the `update_about_me` tool remain Engine built-ins, not packages.
@@ -75,7 +83,7 @@ See `references/character-cards.md` → The Professor Mari Pattern, and `docs/PR
 
 ## Downloadable Agents (v2.3)
 
-v2.3.0 restructured the engine around **downloadable capability packages**. Optional agents no longer ship in the base Engine — they install from the in-app **Agents → Download Agents** library, backed by the official **Pasta-Devs/Marinara-Agents** catalog of 29 verified packages (Writer / Tracker / Misc). Key points:
+v2.3.0 restructured the engine around **downloadable capability packages**. Optional agents no longer ship in the base Engine — they install from the in-app **Agents → Download Agents** library, backed by the official **Pasta-Devs/Marinara-Agents** catalog of **31** verified packages as of v2.4.0 (6 Writer / 8 Tracker / 17 Misc). Key points:
 
 - **Fresh installs ship no optional agents**; upgrades from ≤2.2 migrate agent selections, settings, and history automatically.
 - **Package-owned server runtimes** — Hierarchical Maps, Calls, the six table games, and the other optional capabilities moved out of the base Engine (25,000+ lines removed; capability registries and compatibility bridges remain).
@@ -114,13 +122,13 @@ Group DMs are supported. As of v2.3.4 (#3887), multi-character Conversations off
 Traditional creative-writing roleplay. Rich narration, prose. Supports:
 - Full agent stack (world state, trackers, sprites, backgrounds, weather, combat)
 - VN-style character sprite overlays — a chat can show all enabled sprite owners (the hard-coded 3-sprite cap was removed in v2.1)
-- Scene videos (v2.1) — per-image **Animate** and Gallery Video actions render MP4s via a Video Generation connection, shown as pinnable/draggable video overlays (shared with Game Mode and Visual Novel galleries)
+- Scene videos (v2.1) — per-image **Animate** and Gallery Video actions render MP4s via a Video Generation connection, shown as pinnable/draggable video overlays (shared with Game Mode galleries)
 - Custom backgrounds with crossfade transitions
 - Weather particle effects (rain, snow, thunderstorm, fog, cherry blossoms, aurora)
 - Time-of-day lighting (dawn, day, dusk, night)
 - Game HUD with character stats, quests, world state
 
-**Visual Novel (v2.2)** — no longer a separate mode/tab; the obsolete "coming soon" VN tab was removed and legacy/imported VN chats now appear under **Roleplay** (schema, importer, and achievements preserved; the video/gallery surfaces are still shared). Game dialogue labels now use "Dialogue Box" wording.
+**Visual Novel — fully retired (v2.4.0, #4368). Do not offer it as a mode.** v2.2 removed the separate tab and routed legacy/imported VN chats under **Roleplay**; **v2.4.0 removed the mode identifier and its remaining compatibility branches outright** — from active schemas, runtime routing, UI labels, imports, and current documentation. The supported modes are now consistently **Conversation, Roleplay, Game**, and `chatModeSchema` is literally `z.enum(["conversation", "roleplay", "game"])` (`packages/shared/src/schemas/chat.schema.ts`). Game dialogue labels use "Dialogue Box" wording.
 
 **Chat Summary (v2.2)** — the Summary Connection has a maximum-output-size setting (`prompt.schema.ts:42` `maxTokens`, default **4096** tokens) applied to both manual and automatic summaries. A custom Roleplay Chat Summary prompt now applies **globally** across all roleplay chats, not only the currently open chat. v2.3 removed the 2,000-char per-source-message truncation and the 64 KiB compiled-summary ceiling in `chats.json`. v2.3.4 (#3864) removed the 50-message ceiling on Conversation and Roleplay recent-summary tails (conservative defaults and cost guidance retained).
 
@@ -131,7 +139,7 @@ A shipped mode (v2.0) — Roleplay + JRPG game loop. The model acts as GM; the e
 
 **Hierarchical Maps (v2.3)** — a downloadable Tracker Agent package (see Downloadable Agents (v2.3)), enableable in Roleplay and during/after Game creation: a world-map surface plus a full hierarchical map editor (#3691), with its controls nested inside its Chat Settings → Agents entry (#3679). It fully obeys the per-chat Enable Agents toggle (UI, prompt generation, lorebook previews, retries, tracker patches, carryover, checkpoints). Troubleshooting: incompatible 1.0.x runtimes are quarantined (fixes "t.select is not a function"); #3723 ships a one-time correction removing the 2.3.2 migration's accidental Maps auto-selection; inactive-chat Maps calls no longer block sends ("Failed to flush 1 game-state patch callback").
 
-**Scene videos (v2.1)** — a dedicated Video Generation connection (`chat.ts gameVideoConnectionId`/`sceneVideoConnectionId`, selected under Chat Settings → Agents → Scene Videos or the setup wizard) renders MP4s into a scene-video store; they surface in the Gallery **Videos** tab with per-image **Animate** buttons and pinnable/draggable video overlays (also available in Roleplay and Visual Novel galleries).
+**Scene videos (v2.1)** — a dedicated Video Generation connection (`chat.ts gameVideoConnectionId`/`sceneVideoConnectionId`, selected under Chat Settings → Agents → Scene Videos or the setup wizard) renders MP4s into a scene-video store; they surface in the Gallery **Videos** tab with per-image **Animate** buttons and pinnable/draggable video overlays (also available in Roleplay galleries).
 
 **Turn storyboards (v2.1)** — a Prompt Director splits a completed GM narration into 2–6 anchored keyframes (usually 4), renders their media concurrently, and shows them in a draggable viewer that follows the current story section (reopenable from Gallery). Keyframes land in the Gallery Images tab; with the off-by-default **Automatic Storyboard Animations** each is also animated into an MP4. Per-chat: `gameStoryboardAutoIllustrationsEnabled`, `gameStoryboardAutoGenerationEnabled` (`chat.ts:477-480`); a manual "Create storyboard" button needs the Game Illustrator image connection. Types `game.ts:611-681`; see `docs/STORYBOARD_ENGINE_GUIDE.md`.
 
@@ -200,7 +208,8 @@ The assembly lives in `packages/server/src/routes/generate.routes.ts` and `packa
 - connections (with encrypted API keys)
 - agents (both built-in configs and custom agents)
 - custom_tools
-- themes (extensions were removed in v2.3.4 — first startup permanently erases retained extension records and `extension-storage:*` settings)
+- themes and `installed_extensions` (**Personal Extensions returned in v2.3.5** — records carry the approved SHA-256 hash, enabled flag, declared capabilities, and revision history; anything from *before* the 2.3.4 purge is gone for good and is not restored by 2.3.5)
+- automatic backups (*v2.4.0*) — rotating daily / weekly / monthly full backups configured under **Settings → Advanced → Backup & Export**, with the last run and failure state surfaced in the UI. Native profile and full-backup ZIP exports now stream to disk with bounded JSONL table shards, so large libraries no longer fail with `Invalid string length`.
 - gallery (generated/uploaded images **and videos**; v2.1 renamed "clips" → **Videos** and split galleries into Images/Videos tabs, newest-first)
 
 Fully local. Backing up = copying the `DATA_DIR/storage` directory (or the whole `DATA_DIR`). Sharing = exporting individual objects as JSON (characters, presets, lorebooks all have export endpoints).
@@ -228,7 +237,7 @@ All under `/api/*`:
 - `/api/professor-mari/workspace` — Professor Mari's workspace agent: AI-assisted creation of characters/personas/lorebooks/chats. **This replaced the standalone `/api/character-maker`, `/api/lorebook-maker`, and `/api/persona-maker` routes, which were removed in v2.0.**
 - `/api/bot-browser/*` — the Card Browser (user-facing rename from "Bot Browser" in v2.3; the route path is unchanged): import from Chub, CharacterTavern, JannyAI, Pygmalion, Wyvern, DataCat. Provider fetches are consolidated behind `safeFetch` (#3617)
 
-Full list in `docs/FRONTEND.md`.
+Full list in `docs/development/frontend.md` (moved from `docs/FRONTEND.md`).
 
 ## Providers Supported
 
@@ -259,13 +268,38 @@ Full list in `docs/FRONTEND.md`.
 - **What's New window (v2.3)** — a one-time, version-aware What's New window (post-onboarding, Mari-hosted) links the GitHub release and remembers the shown version.
 - **Generation-completion notifications (v2.3)** — opt-in browser/Android notifications for manually started replies that finish while the app is unfocused (#3588).
 - **New env vars (v2.3, #3730)** — `CHAT_GENERATION_TIMEOUT_MS` for slow Conversation/Roleplay/Game providers, and `AUTO_UPDATE_ENABLED=false` for a persistent launcher update opt-out (Windows/macOS/Linux/Termux) without disabling manual updates. As of v2.3.4, with auto-update disabled the launchers do a read-only latest-release check and print a console reminder (installed version + release link), and `--skip-update` suppresses checks for one launch; macOS/Linux/Termux launchers also no longer source `.env` as Bash — Node's non-evaluating dotenv parser is used, with ambient-environment precedence preserved (#3810).
+- **Env vars added since (2.3.5 / 2.4.0)** — `AGENT_CALL_TIMEOUT_MS` (10s–1h, default 5 min; total-duration cap on one agent LLM call, applied even mid-stream — Illustrator keeps its own 30-minute floor). `GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS` (10s–1h, default 45s; the Game scene → image prompt call). `TRUSTED_HOSTS` (extra public/reverse-proxy hostnames; direct IP, localhost, `.local`, `.home.arpa`, and single-label LAN names already work — this backs the 2.3.5 DNS-rebinding guard that rejects untrusted Host names *before* CORS, loopback auth bypasses, or privileged reads). `REQUIRE_AUTH_FOR_DOCKER_PROXY` (default **`true`** as of 2.4.0; `false` is an explicit legacy opt-out for fully trusted upstream clients — direct same-host Docker bridge/gateway traffic still works via `BYPASS_AUTH_DOCKER`). `ENABLE_EXTERNAL_EXTENSIONS` (first of two gates for third-party extension imports). `DOCS_I18N_BASE_URL` (documentation pack source). Also *(2.4.0)*: `CHAT_GENERATION_TIMEOUT_MS` now governs the **time-to-first-byte budget for background generation** too (Noodle timeline refresh, Noodler replies), fixing `HeadersTimeoutError` / "fetch failed" on slow local models after a fixed five minutes (#4174).
+- **Chat sort default changed (v2.4.0, #4341)** — **Recent** is now the default chat sort, ordered by *last-message activity*. **Newest** and **Oldest** now sort by *chat creation date*. If a user says their chat list "reordered itself" after upgrading, this is why.
+- **Automatic backups (v2.4.0)** — rotating daily / weekly / monthly full backups under **Settings → Advanced → Backup & Export**, with last-run and failure state shown in the UI.
+
+### Localization — two separate settings, don't conflate them (v2.3.5 / v2.4.0)
+
+Marinara has **two independent language controls**, and confusing them is an easy support mistake:
+
+**1. Interface language** (*v2.3.5*) — **Settings → General → App Behavior → Language**. Localizes application UI text only: controls, labels, guidance. It does **not** touch model prompts, authored content, or chat messages. English (`en.json`) is canonical and the runtime fallback, so a missing translation shows English rather than a key or an empty control. Locale JSON files are discovered lazily; the selection also propagates into downloadable Agent interfaces.
+
+Twelve locales: Arabic (**right-to-left**), Simplified Chinese, English, French, German, Hindi, Japanese, Korean, Polish, Brazilian Portuguese, Russian, Spanish. *(v2.4.0)* Native language names in the dropdown are capitalized (Español, Français, Polski, Português (Brasil), Русский).
+
+**2. Documentation Language** (*v2.4.0*) — **Settings → General → Documentation Language**, also offered at the end of the first-time tutorial. Controls the language of the **in-app guides**, which ship as **downloadable packs** from the repo's `docs-i18n` branch.
+
+- **Download & Replace** fetches the selected language into the data folder with per-file integrity verification and live progress, then **removes the previous pack** — installs carry exactly one language, checkouts carry none.
+- Untranslated guides open in English with an **`EN` badge**. In-app docs search works in the active language.
+- The choice survives every update path; the first start after an update auto-refreshes the pack when its translations changed.
+- A **Fix documentation** failsafe verifies, re-downloads, or resets a broken pack, and reports what actually happened rather than always claiming a reset.
+- Packs available at 2.4.0: Spanish, German, French, Brazilian Portuguese, Polish, Russian, Japanese, Korean, Simplified Chinese — each covering all ~123–124 guides including developer docs.
+- **UI control names stay in English inside translated guides**, deliberately, so instructions can be followed against the interface. (Korean glosses them against the shipped Korean UI strings where one exists.)
+- Forks and mirrors can point **`DOCS_I18N_BASE_URL`** at their own copy of the `docs-i18n` branch (must be a public `https://` host).
+- The tutorial's language suggestion matches region-suffixed locales, so a `pt-BR` interface proposes the pt-br guides on first run.
+
+*Contributor note:* changing an English guide obliges keeping every language pack on `docs-i18n` in step — this is in the contributor docs, and `pnpm check` includes localization gates. See `docs/development/localization.md`.
+
 - **Settings reorg (v2.2)** — Settings gained search-first navigation with compact pinned controls and fixed top-level categories. Media-wide queueing and prompt-review controls moved into a new **Overall Generations** group; the queue option was renamed **Queue media generation requests** and now also covers video. Image prompt review is a global preference, and **Quick replies** moved from Advanced to **General → Input & Editing**.
 
 ## What's NOT Built-In
 
 Important for recommendations:
 - No native external vector DB integration (lorebook uses local embeddings only).
-- No client extension mechanism — the CSS/JS extension feature was removed entirely in v2.3.4 (see `references/extensions.md`). Customization means themes, custom tools/agents, capability packages, or forking.
+- No *unrestricted* client extension mechanism. The old full-trust CSS/JS feature was removed in v2.3.4; **v2.3.5 reintroduced sandboxed Personal Extensions** (see `references/extensions.md`). What's genuinely absent is ambient authority: a sandboxed extension cannot reach messages, presets, lorebooks, undeclared card fields, chat metadata, the DOM, the database, or the network. Those need a broker capability in the engine, the un-sandboxed Full page access path (External Extensions, double-gated), or a fork. Server Extensions are unavailable on Windows and Android.
 - No third-party plugin marketplace — official capability packages install from the in-app **Download Agents** catalog (v2.3; auto-updating, per-major lanes); as of v2.3.4, disabled-by-default **custom GitHub agent repositories** (#3861) add an opt-in third-party install path.
 - No hooks into the prompt assembly pipeline — can't insert your own logic mid-generation without forking.
 - No multi-user auth — it's single-user / local-first by design. Multi-user requires a proxy + auth layer you build.

@@ -263,6 +263,20 @@ Tools are attached to chats via chat settings. A tool created in the panel is av
 
 **Tool portability (v2.3.4, #3953):** custom tools do **not** travel with agent files. Exported agents no longer bundle custom function definitions, and imported agent files cannot install functions, grant themselves tool access, or impersonate curated agent types. A recipient of a shared agent must **re-create (or already have) the tools and explicitly attach them** after import — any recommendation involving a shared agent file needs that step spelled out.
 
+### UI naming: "Functions"
+
+In the interface, custom tools are labelled **Functions** — the section under Chat Settings has a wrench icon, and the actions read **Create function**, **Add Functions**, **Import functions from ZIP or JSON**, **Export functions to ZIP**. Use the UI wording when giving click-path instructions, and "custom tool" when talking about the schema. With **Enable Tool Use** on and no tools added below, a chat can use *all* globally enabled tools (built-ins like dice rolls and lorebook search, plus every enabled custom tool); adding specific tools narrows it to that set.
+
+### ⚠️ Import security (v2.4.0)
+
+**Imported webhook tools always arrive disabled, with "Include hidden chat context" forced off** — regardless of what the imported file requested. After import, Marinara shows the webhook's **destination origin** and the permissions the file asked for, so the user can inspect the full configuration before deliberately enabling it.
+
+- **Static and Script tools keep their imported enabled state.** Only webhooks are force-disabled — they're the ones that can exfiltrate to a third party.
+- An import **skips any tool whose name clashes** with an existing tool or a built-in tool name.
+- Agent packages neither bundle nor import custom tools (see portability above).
+
+**Advising implication:** any instruction to "import this tool bundle and you're done" is wrong for webhook tools. The user must open each imported webhook, inspect its complete URL and hidden-context setting, and turn it on. Include that step. When *sharing* a webhook tool, warn the recipient what origin it points at — Marinara will show them, and an unexplained third-party origin should be a stop sign.
+
 ## API Endpoints
 
 - `GET /api/custom-tools` — list

@@ -115,6 +115,28 @@ Conversation mode registers a `Conversation` macro category (`packages/shared/sr
 
 **(v2.3.4)** Two macro additions usable in card text generally (not Conversation-only): **`{{group}}`** expands to every other active chat character — it works during targeted Roleplay group generation too, and the full roster is kept available in manual group generation so it never resolves empty — and **conditional prompt macros** now support `||` (OR), `&&` (AND), parentheses, and an equality-list shorthand, with examples in-app.
 
+### Character-ID macros (v2.4.0, #4336)
+
+To reference a character **who is not part of the current chat**, copy that card's ID and put it directly inside double braces:
+
+```text
+{{V1StGXR8_Z5jdHi6B-myT}}
+```
+
+Marinara replaces the macro with **the card's name** and adds **that card's character context to the system prompt**. Specifically:
+
+- The referenced card's **initial greetings and example dialogue are excluded** — you get the character description, not their conversational scaffolding.
+- **Lorebooks attached to the referenced card still activate normally**, subject to their usual keyword, constant, filter, probability, and token-budget rules.
+
+**Why this matters for ideation.** This is the clean answer to "my character should know about their sister / rival / mentor who exists as their own card, but I don't want them in the chat." Previously the options were duplicating the description into the card (drift, token cost) or a lorebook entry restating it (a second source of truth). Now one card is the single source and other cards reference it by ID.
+
+**Caveats to state when recommending it:**
+- It pulls the **whole** character context every time the macro resolves, so it is not free — don't scatter it across a dozen references in one card.
+- It's an ID, not a name, so the card text becomes opaque to a human reader. Suggest a nearby comment noting who the ID belongs to.
+- If the referenced card is deleted, the reference breaks. For a stable shared canon that several cards depend on, a **lorebook** is still the more robust structure — use Character-ID macros for genuine character-to-character references.
+
+Docs: `docs/prompts/macros.md`.
+
 ### Theming the about-me popout
 
 The Card CSS Theming Guide exposes **`mari-about-me-*` hooks** (e.g. `mari-about-me-popout`, `-box`, `-banner`, `-avatar`, `-name`, `-handle`, `-status`, `-badge`, `-text`), so the Conversation about-me popout is themable straight from **Creator Notes** CSS — and personas can now ship their own creator-notes CSS for their popout too.
@@ -133,7 +155,7 @@ Mari's `system_prompt` is blank in her card, but the server injects a large `MAR
 **For a custom character with a lot of domain knowledge:** either do what Mari does structurally (large `description` + `system_prompt` with XML-tagged sections) or use a lorebook for the reference material. **(v2.3.4)** The XML-tagged-sections pattern now fully applies to user-authored cards too: leaf content reaches the model verbatim, so your own tags pass through exactly as written (see "Where Each Field Shows Up in the Prompt").
 
 ### What Mari can actually do (v2.0)
-Her hidden actions are content-creation + navigation helpers, not a generic agent (`docs/PROFESSOR_MARI.md`): create personas, create/update character cards, update personas, create lorebooks (optionally with starter entries), create Conversation/Roleplay chats, navigate to panels/settings tabs, fetch existing items to inspect before advising/editing, and read public Fandom/MediaWiki pages. She is a guide that takes a few *safe* actions — she fetches an item before editing it, and she does **not** run the full Game-Mode setup wizard for you. Beyond the seed-prompt content commands, her Home-screen *workspace agent* can also create/edit **agents, custom tools, and themes** via a `mari` CLI (`mari db` over `agent_configs`/`custom_tools`, `mari themes`), requesting browser approval before database changes. **(v2.3.4)** Mari no longer creates or edits browser extensions — the extension feature was removed from the engine, and her extension instructions went with it.
+Her hidden actions are content-creation + navigation helpers, not a generic agent (`docs/PROFESSOR_MARI.md`): create personas, create/update character cards, update personas, create lorebooks (optionally with starter entries), create Conversation/Roleplay chats, navigate to panels/settings tabs, fetch existing items to inspect before advising/editing, and read public Fandom/MediaWiki pages. She is a guide that takes a few *safe* actions — she fetches an item before editing it, and she does **not** run the full Game-Mode setup wizard for you. Beyond the seed-prompt content commands, her Home-screen *workspace agent* can also create/edit **agents, custom tools, and themes** via a `mari` CLI (`mari db` over `agent_configs`/`custom_tools`, `mari themes`), requesting browser approval before database changes. **(v2.3.5)** Mari authors **Personal Extensions** again — and she is the *only* author of them, since the Personal Extensions section has no New Draft button and no import control. She writes and saves the draft code; **she cannot approve, enable, or grant it Full page access.** The user must inspect the code, compare the displayed SHA-256 hash, and approve that exact version. (This reverses the v2.3.4 state, when the extension feature and her extension instructions were both removed.) She can also request **review-gated public npm dependencies** for workspace changes: she proposes a root/client/server/shared package, Marinara resolves it to an exact registry version and integrity hash, and waits for the user to approve before installing it with lifecycle scripts disabled. Her raw shell is confined to macOS Seatbelt or Linux Bubblewrap with outbound network denied and fails closed where no sandbox exists. See `references/extensions.md`.
 
 **(v2.3)** Mari also drafts Conversation **About Me** bios: she inspects the saved character/persona, writes the blurb in their voice, and saves it to the real `aboutMe` field (the per-editor AI Write controls were removed — see the Conversation-mode Profile section). And her card/app-data updates are **field-safe**: partial updates via Mari (or any app-data caller) preserve unrelated fields — greetings, example dialogue, creator notes, system prompts, post-history instructions, character versions, and alternate greetings all survive an update to some other field (#3708); blank Mari generation turns were fixed and lorebook creation made atomic (#3674). **(v2.3.4)** The same field safety now extends to the HTTP layer: partial nested `PATCH /api/characters/:id` requests deep-merge without materializing destructive defaults (#3858) — see API Endpoints.
 

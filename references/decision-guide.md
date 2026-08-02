@@ -70,7 +70,7 @@ See `references/custom-tools.md` for full execution type breakdown.
 ### 5. Does something need to happen **automatically on every turn**?
 Per-turn automation = not user-initiated, not tool-triggered — just runs in the background as part of message generation.
 
-**First, check the official catalog (v2.3).** The 29 official downloadable agent packages (Agents → Download Agents) already cover common per-turn jobs — trackers, continuity checking, card evolution, and more. Recommend installing an official package before designing a custom agent; fresh installs contain no optional agents, so include the install step. As of 2.3.4 the official catalog is not the only install source: **custom GitHub agent repositories** (#3861) can distribute third-party packages — disabled by default, manual preview/apply (no auto-sync), and an explicit per-repo trust confirmation. Only recommend a custom repo the user already trusts. Only if nothing in the catalog (or a trusted repo) fits:
+**First, check the official catalog (v2.3+).** The **31** official downloadable agent packages (Agents → Download Agents) already cover common per-turn jobs — trackers, continuity checking, card evolution, and more. Recommend installing an official package before designing a custom agent; fresh installs contain no optional agents, so include the install step. As of 2.3.4 the official catalog is not the only install source: **custom GitHub agent repositories** (#3861) can distribute third-party packages — disabled by default, manual preview/apply (no auto-sync), and an explicit per-repo trust confirmation. Only recommend a custom repo the user already trusts. Only if nothing in the catalog (or a trusted repo) fits:
 
 → **Custom agent**, placed in the right phase:
 - **`pre_generation`** — runs before the main response. Use for: injecting context, reviewing the prompt, rewriting directives.
@@ -78,6 +78,8 @@ Per-turn automation = not user-initiated, not tool-triggered — just runs in th
 - **`post_processing`** — runs after the main response. Use for: fact-checking, state extraction, rewriting for style, tracking variables.
 
 Agents cost real tokens and latency every turn. Only use them when the job genuinely needs to happen on every message. Custom agents run in all three modes (Conversation, Roleplay, Game) — but only while the chat's **Enable Agents** master toggle is on; if an agent "isn't firing," check that toggle first.
+
+> **⚠️ v2.4.0 (#4305) — always specify context sources.** A custom agent receives **chat history only** by default. `characters`, `persona`, `activatedLorebookEntries`, `chatSummary`, `authorNotes`, `trackerData`, and `recalledMemories` are each **off** until enabled in that agent's **Context Sources**. Built-in/package agents are unaffected. So "a continuity checker" is incomplete advice — it needs `characters` + `activatedLorebookEntries` + `chatSummary` to do its job. If a user reports an agent that "stopped understanding the character," this is the first thing to check. Also note *(#4360)* Run Interval now counts **both user and assistant messages**, so an existing interval fires about twice as often as it used to.
 
 **Fits:** A "tone enforcer" that rewrites every message to stay in-period for a historical RP; a "combat tracker" that extracts damage numbers from narration into structured HP; a "continuity checker" that flags contradictions.
 
@@ -92,11 +94,29 @@ Look-and-feel = colors, fonts, backgrounds, spacing, restyling existing elements
 
 → **Native Appearance settings first, then a custom theme.** v2.0 made much theming native — accent color, RGB/pulse, app background + gradients, chat text colors, font, and "Reset Appearance." For styling beyond the native controls, use the server-synced **custom themes** system (`/api/themes`, managed under Settings → Addons). Professor Mari can also generate themes for you.
 
-**Client extensions were REMOVED in v2.3.4.** There is no DOM injection, no `marinara` API, no user CSS/JS loading — and the first 2.3.4 startup permanently erases any retained extension records and extension storage. Don't recommend building one, and warn users still on pre-2.3.4 that extension data won't survive the upgrade. If the user asks "where did extensions go?", `references/extensions.md` is kept as a historical tombstone with the migration routing.
-
 **Fits:** Custom color schemes, restyled chat bubbles, a themed look matching a character's world.
 
-**Doesn't fit:** Functional UI additions (new buttons, panels, widgets, indicators) — as of 2.3.4 there is no user-side script path for those. They route to a **downloadable capability package** (capability API 1.3) contributed through the Marinara-Agents catalog, a **custom GitHub agent repository** (#3861) for third-party distribution, or an **upstream PR** to the engine — forking is only needed for what the capability API can't express.
+**Doesn't fit:** Functional UI additions — those are the next question.
+
+---
+
+### 6b. Does the user want to **add UI functionality** (a button, panel, widget, indicator)?
+
+> **⚠️ Corrected guidance.** Client extensions were removed in v2.3.4, but **v2.3.5 reintroduced them as sandboxed Personal Extensions**, and v2.4.0 expanded the API. Earlier advice that "there is no user-side script path" is **obsolete**. There is one again — it's just narrow and permissioned.
+
+→ **A Personal Extension** (Settings > Addons). Ask **Professor Mari** to draft it; the user reads the code, approves the exact SHA-256 hash, and enables it. It runs in a sandboxed Worker and can register top-bar buttons, Extensions-menu items, and right-side panels via `marinara.ui.registerContribution(...)`, built from a fixed control vocabulary (heading, text, pre, button, input, select, toggle, slider, color, spacer).
+
+**Fits:** A per-chat notepad, a settings-style control panel for something the user tracks by hand, a small dashboard keyed to the active chat or character, a launcher for a multi-step workflow whose state lives in `marinara.storage`.
+
+**Doesn't fit — and say so plainly:** anything needing messages, presets, lorebooks, undeclared card fields, chat metadata, DOM access, the database, or the network. The sandbox is a capability allowlist. Those need either a **new broker capability in the engine** (an upstream PR, Mode B) or the un-sandboxed **Full page access** External Extension path — which requires `ENABLE_EXTERNAL_EXTENSIONS=true` plus a Danger Zone opt-in, cannot be authored by Mari, and carries browser-console-level authority.
+
+Note the read-only **context API (v5)**: chat and character IDs are always available (good for namespacing private storage), while bounded *card fields* require the approved `read_active_characters` / `read_active_persona` permissions.
+
+**Platform caveat:** Server Extensions need macOS Seatbelt or Linux `bwrap` and are **unavailable on Windows and Android** — check the OS before recommending one.
+
+**Distribution:** still prefer a **downloadable capability package** (capability API 1.3) via the Marinara-Agents catalog, or a **custom GitHub agent repository** (#3861), for anything meant for other people — an exported extension lands in the recipient's gated External Extensions section and must be hash-approved there.
+
+See `references/extensions.md` before committing to any extension design.
 
 ---
 
@@ -156,7 +176,7 @@ Most real projects are two or three of these surfaces together. Don't recommend 
 **Character card** + **multiple custom tools** (one per action the character can take) + optional **custom agent** to nudge the character to use the tools naturally.
 
 ### "Immersive RP character"
-**Character card** + **lorebook** (world info) + **post-processing agent** (state tracker) + optional **parallel agent** (image generation, music) + the native **Tracker Panel** for the HUD (improved in 2.3.4 — no extension needed; extensions were removed).
+**Character card** + **lorebook** (world info) + **post-processing agent** (state tracker) + optional **parallel agent** (image generation, music) + the native **Tracker Panel** for the HUD (improved in 2.3.4 — no extension needed for the HUD itself; *(v2.4.0)* tracker stats can also use an optional radial-gauge layout with editable icons, percentage readouts, and low-stat warnings).
 
 ### "Knowledge base over a large structured dataset" (300 WordPress sites, customer records, etc.)
 **Character card** (teaches the model how to look things up) + **webhook custom tool** (`lookup_by_id`, `search_by_field`, `list_all`) + **your own backend** (the actual data store). Do NOT try to put the dataset itself in the lorebook unless it's small and the lookup pattern is keyword-shaped.

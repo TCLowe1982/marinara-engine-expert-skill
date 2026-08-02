@@ -2,14 +2,14 @@
 
 A Claude skill that handles two kinds of Marinara Engine work:
 
-- **Ideation** — designing characters, lorebooks, custom tools, agents, and extensions for users *building things in* Marinara.
+- **Ideation** — designing characters, lorebooks, custom tools, agents, themes, and Personal Extensions for users *building things in* Marinara.
 - **Contribution** — triaging PRs, reproducing bugs, diagnosing issues, and shipping focused changes to *the Marinara codebase itself*.
 
 The skill detects which mode the user needs from context and switches its workflow accordingly.
 
 ## What it does
 
-**In ideation mode**, the skill identifies which Marinara Engine surfaces the user's idea touches (character card, lorebook, custom tool, agent, extension), presents 2–4 architecture options with honest tradeoffs, recommends one with rationale, then offers to build it — but first asks for a concrete behavioral spec rather than letting the model guess.
+**In ideation mode**, the skill identifies which Marinara Engine surfaces the user's idea touches (character card, lorebook, custom tool, agent, theme, Personal Extension), presents 2–4 architecture options with honest tradeoffs, recommends one with rationale, then offers to build it — but first asks for a concrete behavioral spec rather than letting the model guess.
 
 **In contribution mode**, the skill triages open PRs by urgency, requires reproducing bugs on a real local install before proposing fixes, drives diagnosis through the dev console + network tab + server logs, and walks through implementations one focused change at a time.
 
@@ -17,7 +17,7 @@ It also enforces a mandatory pre-submission checklist before any PR is declared 
 
 **Built for beginners too.** The skill is tuned to assume the user may be brand new to coding, git, or development tooling. Before any significant action — opening a file, running a command, branching, editing code — Claude narrates what it's doing and why in plain-language analogies, then pauses so the user can follow along instead of silently batching changes. Concepts like branches, `pnpm check`, agents, and pattern-matching get explained the first time they come up, then dropped if the user demonstrates fluency. The goal: a hobbyist contributor with zero CS background can ship a working PR.
 
-The skill enforces every rule in CONTRIBUTING.md — server-side logging via Pino, link-the-issue PR bodies, in-same-PR doc updates, and version-drift checks across all 10 version-bearing files.
+The skill enforces every rule in CONTRIBUTING.md — server-side logging via Pino, link-the-issue PR bodies, in-same-PR doc updates, and version-drift checks across all 10 version-bearing files. It is synced to **Marinara Engine v2.4.0**.
 
 ## Knowledge architecture
 
@@ -55,13 +55,13 @@ git clone https://github.com/<owner>/marinara-engine-expert-skill.git \
 git -C ~/.claude/skills/marinara-engine-expert pull
 ```
 
-Restart Claude Code (or reload skills) afterward. The skill then activates automatically when you mention Marinara Engine / Professor Mari / SpicyMarinara, or describe building characters, lorebooks, tools, agents, or extensions — in any project that can see the skills directory.
+Restart Claude Code (or reload skills) afterward. The skill then activates automatically when you mention Marinara Engine / Professor Mari / SpicyMarinara, or describe building characters, lorebooks, tools, agents, themes, or Personal Extensions — in any project that can see the skills directory.
 
 The extra repo files (`README.md`, `audit/`, etc.) are harmless: Claude Code only loads `SKILL.md` and the files it references.
 
 ## When it activates
 
-The skill triggers when users mention Marinara Engine, Professor Mari, SpicyMarinara, or describe building characters, tools, extensions, or agents for AI chat frontends. It also triggers for contributor work — reviewing PRs, fixing bugs, or shipping changes to the Marinara repo.
+The skill triggers when users mention Marinara Engine, Professor Mari, SpicyMarinara, or describe building characters, tools, themes, extensions, or agents for AI chat frontends. It also triggers for contributor work — reviewing PRs, fixing bugs, or shipping changes to the Marinara repo.
 
 ## License
 

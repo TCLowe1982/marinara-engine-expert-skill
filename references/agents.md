@@ -58,9 +58,13 @@ v2.3.0 moved every optional agent out of the base Engine into **downloadable cap
 
 ### Package catalog
 
-First-party packages are published in **github.com/Pasta-Devs/Marinara-Agents** as individually verified packages — **29 packages**: 6 Writer, 8 Tracker, 15 Misc (full list below). Trust model: schema validation, SHA-256 checksums, per-file hash/size checks, atomic install, and offline availability once installed. Professor Mari's prompts carry the canonical 29-package summary, so she can compare and recommend packages in-app. Upstream reference doc: `docs/agents/built-in-agents.md` in the Engine repo.
+First-party packages are published in **github.com/Pasta-Devs/Marinara-Agents** as individually verified packages — **31 packages as of v2.4.0**: 6 Writer, 8 Tracker, 17 Misc (full list below). Trust model: schema validation, SHA-256 checksums, per-file hash/size checks, atomic install, and offline availability once installed. Professor Mari's prompts carry the canonical 31-package summary, so she can compare and recommend packages in-app. Upstream reference doc: `docs/agents/built-in-agents.md` in the Engine repo.
 
 *(2.3.3)* Each Engine major installs/updates only from its matching **catalog lane** — `catalog/v2/catalog.json` for Engine 2, `catalog/v3/` for Engine 3, with `catalog/catalog.json` as a legacy v2 alias (#3712).
+
+*(2.3.5)* Two security changes to package distribution:
+- **Updates now prompt per version.** Silent startup updates for installed packages were replaced with a responsive per-version confirmation. Choosing **No** records that decision without changing the installed package; the manual **Update** action stays available in Agents → Download Agents. (2.4.0 corrected Mari's guidance to match this user-confirmed flow.)
+- Official catalog artifacts are **restricted to canonical Marinara-Agents repository URLs**, while explicit custom-catalog overrides are preserved.
 
 ### Custom GitHub agent repositories (v2.3.4)
 
@@ -86,7 +90,7 @@ Upgrades from ≤2.2 migrate agents and chat feature selections without losing s
 
 ## Official Downloadable Agents
 
-These were the "built-in agents" through v2.2; *(v2.3)* they are now the **29-package official catalog** described above. None are present on a fresh install — install from Download Agents first, then enable per chat. Pipeline packages are listed by phase, with the `id` you reference in config, the display name, and the catalog category (**Writer / Tracker / Misc**); feature packages (package-owned runtimes, `execution: "feature"`) follow in their own subsection.
+These were the "built-in agents" through v2.2; *(v2.3)* they are now the **31-package official catalog** described above. None are present on a fresh install — install from Download Agents first, then enable per chat. Pipeline packages are listed by phase, with the `id` you reference in config, the display name, and the catalog category (**Writer / Tracker / Misc**); feature packages (package-owned runtimes, `execution: "feature"`) follow in their own subsection.
 
 > **Retired — don't reference these:** `prompt-reviewer`, `response-orchestrator`, `schedule-planner`, `chat-summary`, `autonomous-messenger`, `youtube`, `secret-plot-driver`, and *(v2.3)* `about-me-keeper` are in `RETIRED_BUILT_IN_AGENT_IDS` and are neither built-ins nor packages. (Chat summary survives only as a prompt constant, not an agent. Conversation's **About Me** profile and the `update_about_me` tool remain built into the Engine — they are **not** downloadable agents — and as of 2.3.2 About Me drafting goes through Professor Mari.)
 
@@ -114,8 +118,10 @@ These were the "built-in agents" through v2.2; *(v2.3)* they are now the **29-pa
 - **`lorebook-keeper`** (Lorebook Keeper — Misc) — auto-writes lorebook entries from the ongoing story.
 - **`card-evolution-auditor`** (Card Evolution Auditor — Writer) — proposes character-card edits for user approval.
 - **`spotify`** (Music DJ — Misc) — plays scene-matched music through **Spotify, YouTube, or local Game Assets** (`musicProvider` setting; *(v2.3)* Game Assets is the third source). *(v2.3)* The always-available **Music Player** toggle shows "Download Music DJ Agent to configure" guidance when the package isn't installed. *(v2.3.4)* The shared recent-track history now covers the last **250 Spotify tracks**, so 50-song candidate batches rotate across large playlists instead of repeating.
-- **`cyoa`** (CYOA Choices — Misc) — generates in-character choices after a response.
+- **`cyoa`** (CYOA Choices — Misc) — generates in-character choices after a response. *(v2.4.0)* Choices gained a **Post/Impersonate quick toggle**, and centered choices now stay clear of the Tracker panel.
 - **`haptic`** (Haptic Feedback — Misc) — drives haptic devices via Intiface Central running locally.
+- **`long-term-memory`** (Long-Term Memory — Misc) — *(new to the catalog by v2.4.0)* durable cross-session recall. When it's active, its output reaches a custom agent only if that agent has the **`recalledMemories`** context source enabled (see "Per-agent context sources" below). *(v2.4.0)* Memory Recall discards superseded message revisions and injects only the current edited message text (#4304).
+- **`storyboard`** (Storyboard — Misc) — *(new to the catalog by v2.4.0)* multi-panel scene storyboards. Distinct from Roleplay Gallery **Animate**, whose single-shot animation director is Illustrator-adjacent (see below).
 
 ### Feature packages (not pipeline agents)
 
@@ -150,7 +156,42 @@ Users can create their own agents from scratch. The schema:
 
 (The runtime `AgentConfig` also carries `id`, `tools`, `toolConfig`, and `createdAt`/`updatedAt`, which the server manages.)
 
-**A custom agent is essentially a scoped LLM call with its own prompt, running in a specific phase.** The agent gets context about the current chat and is expected to return output in a structured form (depending on its `resultType`).
+**A custom agent is essentially a scoped LLM call with its own prompt, running in a specific phase.** The agent returns output in a structured form (depending on its `resultType`) — but as of v2.4.0 **what context it receives is opt-in per agent.**
+
+### ⚠️ Per-agent context sources (v2.4.0, #4305) — read before designing any custom agent
+
+Custom agents no longer receive the full turn context by default. Each agent declares which sources it wants, stored under `settings.contextSources` and edited in the Agent Editor's **Context Sources** control.
+
+From `CUSTOM_AGENT_CONTEXT_SOURCE_IDS` / `DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES` (`packages/shared/src/types/agent.ts`):
+
+| Source | Default | What it feeds |
+|---|---|---|
+| `chatHistory` | **`true`** | Recent messages, depth = the agent's `contextSize` setting |
+| `characters` | `false` | The character card(s) in the chat |
+| `persona` | `false` | The selected persona |
+| `activatedLorebookEntries` | `false` | Lorebook entries that activated this turn |
+| `chatSummary` | `false` | The chat summary |
+| `authorNotes` | `false` | Author's Note |
+| `trackerData` | `false` | Tracker panel state |
+| `recalledMemories` | `false` | Long-Term Memory / vector recall results |
+
+**Chat history is the only default. Everything else is off.** This is the single most common cause of a custom agent that "used to know the character" and now doesn't.
+
+Enforcement, from `agent-executor.ts`:
+
+```ts
+return config.isCustomAgent ? normalizeCustomAgentContextSources(config.settings) : ALL_AGENT_CONTEXT_SOURCES;
+```
+
+Consequences worth stating to users:
+- **Built-in / official package agents are unaffected** — they still get everything (`ALL_AGENT_CONTEXT_SOURCES`).
+- An existing custom agent with no stored `contextSources` falls back to the defaults, i.e. chat-history-only. Upgrading can silently narrow an agent that previously reasoned over the card or lore.
+- Turning `chatHistory` off forces `agentContextSize` to `0` — the agent sees no messages at all. That's valid for an agent driven purely by tracker state, but it's rarely what someone wants by accident.
+- `recalledMemories` is what connects the Long-Term Memory package to a custom agent. Without it, memory recall never reaches the agent.
+
+**When recommending a custom agent, always name the context sources it needs.** "Create a continuity agent" is incomplete advice; "create a continuity agent with `characters`, `activatedLorebookEntries`, and `chatSummary` enabled" is actionable.
+
+Design implication: narrower context is cheaper and more focused. Enable only what the agent's job requires rather than switching everything on reflexively — that's the point of the feature.
 
 ### Result types (what the agent returns)
 
@@ -160,6 +201,8 @@ From `agentResultTypeSchema` (`packages/shared/src/schemas/agent.schema.ts`). Th
 - *Trackers & cards:* `character_tracker_update`, `custom_tracker_update`, `persona_stats_update`, `character_card_update`, `lorebook_update`
 - *Narrative / continuity:* `continuity_check`, `director_event`, `secret_plot`, `quest_update`
 - *Media / scene:* `image_prompt`, `background_change`, `sprite_change`, `echo_message`, `spotify_control`, `youtube_control`, `local_music_control` (local Game Assets music source), `haptic_command`, `frontend_theme_update`
+
+> *(v2.4.0, #4337)* A custom agent whose `resultType` is **`image_prompt`** now gets the full **Illustrator-style control set**: image connection, reference image, appearance, and prompt controls. Previously these were exclusive to the Illustrator package. This makes `image_prompt` the practical route for "I want my own image agent with different framing rules" without forking Illustrator — recommend it instead of a webhook-to-your-own-image-backend for that use case.
 - *Game Mode:* `game_state_update`, `game_state_transition`, `game_master_narration`, `game_map_update`, `party_action`, `cyoa_choices`
 - *Conversation:* `about_me_update`
 
@@ -223,6 +266,11 @@ Every enabled agent costs a separate LLM call. A chat with 8 agents enabled will
 **Recommendation for most characters:** 0–3 agents. More only if the project specifically benefits.
 
 *(v2.2)* Roleplay tracker agents support **per-agent manual scheduling**: individual trackers can be excluded from automatic post-turn runs and fired on demand from the HUD, instead of forcing the whole tracker suite into all-or-nothing manual mode (#3522) — a good way to keep an expensive tracker off the per-turn path without disabling it.
+
+*(v2.4.0)* Two run-behavior changes worth knowing when tuning cost:
+- **Run Interval now counts both user and assistant messages** (#4360), across custom agents, Illustrator, Lorebook Keeper, Card Evolution Auditor, About Me Keeper, Narrative Director secret-plot maintenance, and Roleplay Storyboards. An agent set to `runInterval: 5` therefore fires roughly twice as often as the same setting did before, since a turn contributes two messages. **If a user upgrades and their image/lorebook agents suddenly feel twice as chatty, this is why** — tell them to roughly double the interval to preserve the old cadence.
+- **Tracker panels appear as soon as their matching tracker agents are active**, so starting values can be entered before the agent's first run. Useful for seeding a tracker rather than letting the model invent turn-one state.
+- *(#4351)* **Name Prefix** now carries each responding character's identity into post-processing agent prompts in multi-character Roleplay, while rewrite agents' raw response text stays unchanged — relevant when a post-processing agent needs to know *who* spoke in a group chat.
 
 ### Choosing the agent's LLM
 Each agent can have its own `connectionId`. Useful patterns:

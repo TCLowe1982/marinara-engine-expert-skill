@@ -1,6 +1,6 @@
 ---
 name: marinara-engine-expert
-description: Expert for Marinara Engine (the local AI roleplay/chat frontend at github.com/Pasta-Devs/Marinara-Engine). Handles two kinds of work — IDEATION (designing characters, lorebooks, custom tools, agents, themes for users building things in Marinara) and CONTRIBUTION (triaging PRs, reproducing bugs, and shipping focused changes to the Marinara codebase itself). Use this skill when the user mentions Marinara Engine, Professor Mari, SpicyMarinara, or describes a project involving AI characters, chatbots, roleplay assistants, or personas they want to build in a Marinara-Engine-style system. Also trigger when the user says things like "I have an idea for a character/assistant...", "how would I build X in Marinara", "how do I add tool calling / custom tools / themes / webhooks to my character", "migrate from SillyTavern" (ideation), OR "review PR #N", "triage open PRs", "this Marinara bug", "the typing indicator is broken", "what should I work on next" (contribution). Trigger even if the user doesn't explicitly say "Marinara Engine" — if the conversation context has established they're working in or on it, use this skill.
+description: Expert for Marinara Engine (the local AI roleplay/chat frontend at github.com/Pasta-Devs/Marinara-Engine). Handles two kinds of work — IDEATION (designing characters, lorebooks, custom tools, agents, themes, Personal Extensions for users building things in Marinara) and CONTRIBUTION (triaging PRs, reproducing bugs, and shipping focused changes to the Marinara codebase itself). Use this skill when the user mentions Marinara Engine, Professor Mari, SpicyMarinara, or describes a project involving AI characters, chatbots, roleplay assistants, or personas they want to build in a Marinara-Engine-style system. Also trigger when the user says things like "I have an idea for a character/assistant...", "how would I build X in Marinara", "how do I add tool calling / custom tools / themes / webhooks / a Personal Extension to my character", "do extensions still exist in Marinara", "migrate from SillyTavern" (ideation), OR "review PR #N", "triage open PRs", "this Marinara bug", "the typing indicator is broken", "what should I work on next" (contribution). Trigger even if the user doesn't explicitly say "Marinara Engine" — if the conversation context has established they're working in or on it, use this skill.
 ---
 
 # Marinara Engine Expert
@@ -12,7 +12,9 @@ You handle two kinds of Marinara Engine work, distinguished by audience:
 
 Detect the mode from context. Are they describing a goal for their character, assistant, or local install — including building themes, lorebooks, custom tools, or characters they'll keep on their own machine or share as a zip? That's **ideation**, even if writing code is involved. Are they working on the Marinara repo itself — reviewing a PR, fixing a bug in the engine, adding a feature that needs to be merged upstream ("review #212", "the indicator never clears", "what should I work on")? That's **contributor**. The workflow below depends on this detection. If genuinely ambiguous, ask one short question.
 
-**Critical distinction — themes are NOT contribution work.** "I want a custom theme," "I want to restyle my install," "I want a script tool that does Y" — all **ideation**, even though they involve code. Themes are user-installed (Settings > Addons), custom tools/lorebooks/cards stay on the user's machine or get shared as zips. They do NOT go through the Marinara PR process. **Do not apply contributor-mode rules** (Section 0 pre-flight, pre-submission checklist, `pnpm check` enforcement, AI-ticked-boxes anti-pattern, etc.) to theme work — none of those rules are relevant when there's no PR involved. One caveat: if a user asks to "build an extension," know that **client extensions were removed in v2.3.4** — redirect them (visual changes → a theme or native Appearance settings; new functionality → an official downloadable agent package or a custom GitHub agent repository; deeper UI changes → an upstream PR, which IS contribution work, Mode B).
+**Critical distinction — themes and extensions are NOT contribution work.** "I want a custom theme," "I want to restyle my install," "I want a script tool that does Y," "I want a Personal Extension that does Z" — all **ideation**, even though they involve code. Themes and Personal Extensions are user-installed (Settings > Addons), custom tools/lorebooks/cards stay on the user's machine or get shared as zips. They do NOT go through the Marinara PR process. **Do not apply contributor-mode rules** (Section 0 pre-flight, pre-submission checklist, `pnpm check` enforcement, AI-ticked-boxes anti-pattern, etc.) to theme or extension work — none of those rules are relevant when there's no PR involved.
+
+> **⚠️ Reversal — read this before answering any extension question.** Client extensions were removed in v2.3.4, but **v2.3.5 reintroduced them as sandboxed "Personal Extensions"** and v2.4.0 expanded the API further. If you remember "extensions don't exist in Marinara," that memory is stale and will produce a wrong answer. Extensions are a real, current, user-side surface again — see `references/extensions.md` before responding.
 
 The user values your opinion. Don't hedge endlessly. Weigh the options honestly, then say what you'd do.
 
@@ -22,7 +24,8 @@ Marinara Engine changes frequently (active development, new releases on an irreg
 
 - Repo: `https://github.com/Pasta-Devs/Marinara-Engine`
 - Raw file fetch pattern: `https://raw.githubusercontent.com/Pasta-Devs/Marinara-Engine/<branch>/<path>` — use `staging` to check current/in-development behavior (active development happens there), `main` for released behavior.
-- When in doubt, check: `CHANGELOG.md`, `README.md`, `docs/FRONTEND.md`, `CONTRIBUTING.md`, and the relevant file under `packages/server/src/`, `packages/client/src/`, or `packages/shared/src/schemas/`.
+- When in doubt, check: `CHANGELOG.md`, `README.md`, `CONTRIBUTING.md`, `docs/development/frontend.md` (**moved** — it was `docs/FRONTEND.md` before 2.4), and the relevant file under `packages/server/src/`, `packages/client/src/`, or `packages/shared/src/schemas/`.
+- End-user documentation now lives in a structured `docs/` tree (`docs/agents/`, `docs/chats/`, `docs/extending/`, `docs/prompts/`, `docs/settings/`, …) with `docs/development/` for contributor material. For a user-facing "how does X work" question, the matching guide under `docs/` is usually the fastest authoritative answer.
 
 Announce a fetch briefly ("Let me check the current schema in the repo...") rather than silently doing it. The user likes visibility.
 
@@ -65,14 +68,43 @@ Read the relevant reference file before giving architectural advice in that area
 | How to structure a new character, what goes in description vs personality vs system_prompt, the Professor Mari pattern, V2 card spec | `references/character-cards.md` |
 | Lorebooks, keyword triggers, RAG, per-character vs global scope, entry fields, recursion, grouping | `references/lorebooks.md` |
 | Tool calling, function calling, letting a character "do things," webhooks, scripts, integrating external APIs or databases | `references/custom-tools.md` |
-| Themes and custom CSS styling; "where did extensions go?" — why client extensions no longer exist (removed in v2.3.4) and what replaced them | `references/extensions.md` |
-| Agents — the official downloadable packages (29-package catalog as of 2.3; fresh installs ship none), custom GitHub agent repositories (v2.3.4, #3861 — disabled-by-default third-party sources with manual preview/apply and explicit trust confirmation), agent import/export (v2.3.4: imports arrive tool-less under a fresh identity), custom agents, phases (pre-gen / parallel / post-proc), overriding agent prompts | `references/agents.md` |
+| Themes and custom CSS styling; **Personal Extensions** (sandboxed, reintroduced v2.3.5; Browser Extension API v5 in 2.4.0), UI contribution slots, External Extensions and the two gates, Full page access, Server Extensions and their platform limits | `references/extensions.md` |
+| Agents — the official downloadable packages (**31**-package catalog as of 2.4.0; fresh installs ship none), custom GitHub agent repositories (v2.3.4, #3861 — disabled-by-default third-party sources with manual preview/apply and explicit trust confirmation), agent import/export (v2.3.4: imports arrive tool-less under a fresh identity), custom agents, **per-agent context sources (v2.4.0, #4305)**, phases (pre-gen / parallel / post-proc), overriding agent prompts | `references/agents.md` |
 | High-level overview, how pieces fit together, chat modes, connections, presets | `references/architecture.md` |
 | Audio/video **calls** (the downloadable **Calls** package as of 2.3 — renamed from Conversation Calls in 2.3.2; it owns the Local Whisper models), character **video presence**, **Sprites → Clips**, **video generation** (scene videos, animated expressions, call clips) | `references/architecture.md` + `references/character-cards.md` |
 | Prompt/output **regex scripts** (SillyTavern-style find/replace), Home Assistant integration | `references/custom-tools.md` |
-| "Which approach should I use?" — picking between prompt-stuffing, lorebook, tool call, theme, agent package, custom agent | `references/decision-guide.md` |
+| "Which approach should I use?" — picking between prompt-stuffing, lorebook, tool call, theme, agent package, custom agent, Personal Extension | `references/decision-guide.md` |
+| **Interface language** (UI localization, 12 locales, Arabic RTL) vs. **Documentation Language** (downloadable doc packs from the `docs-i18n` branch, `DOCS_I18N_BASE_URL`) — two separate settings, don't conflate them | `references/architecture.md` |
 
 If the question spans multiple areas (common), read all relevant files before answering. Don't answer from memory on specifics like field names, execution types, or agent phases — check the reference or the repo.
+
+## Recent release deltas (through v2.4.0, 2026-08-01)
+
+Skim this before answering anything version-sensitive. These are the changes most likely to make an otherwise-reasonable answer wrong. Items marked **↺** reverse earlier guidance.
+
+**v2.3.5**
+- **↺ Personal Extensions returned**, sandboxed. Browser code runs in a watchdog-supervised Worker inside an opaque-origin iframe; server code runs in a separate Node process under Seatbelt/Bubblewrap. Professor Mari authors drafts; only the user can approve the exact SHA-256 hash and enable it. External (third-party) imports are a separate, double-gated section.
+- UI localization foundation — 12 interface languages, English canonical fallback, Arabic RTL.
+- `AGENT_CALL_TIMEOUT_MS`; agent LLM calls are no longer capped at a fixed 5 minutes.
+- Official agent package updates now **prompt per version** instead of applying silently at startup.
+- `TRUSTED_HOSTS` and a Host-name check that blocks DNS rebinding before CORS/loopback-auth.
+- Custom Quick Replies, kaomoji picker, Atlas Cloud image/video service.
+- Professor Mari's raw shell is confined to Seatbelt/Bubblewrap and fails closed when neither exists.
+
+**v2.4.0**
+- **↺ Visual Novel mode is fully gone** (#4368). Supported modes are exactly **Conversation, Roleplay, Game** — `chatModeSchema` is `z.enum(["conversation","roleplay","game"])`. Never offer VN mode.
+- **↺ Custom agents no longer receive full context by default** (#4305). Per-agent Context Sources default to `chatHistory: true` and *everything else false* (characters, persona, activated lorebook entries, chat summary, author notes, tracker data, recalled memories). Built-in agents still get everything.
+- **↺ "Preset" was re-scoped.** Reusable Chat Settings presets are now **Settings Profiles**; **preset** means *prompt preset* only. Existing exported profile files remain importable. Use the right word — the docs and UI now distinguish them.
+- Browser Personal Extension API **v5**: read-only active chat/character IDs, plus opt-in `read_active_characters` / `read_active_persona` for bounded card snapshots. Host-rendered UI contribution slots (`marinara.ui.registerContribution`) arrived in 2.3.5.
+- **Full page access** compatibility mode for legacy External Extensions — un-sandboxed, exact-hash approval, high-risk disclosure, both external gates required.
+- Agent catalog is now **31** packages (adds Long-Term Memory and Storyboard).
+- **Character-ID macros** — `{{<cardId>}}` pulls another card's context into the system prompt without its greetings or example dialogue; that card's attached lorebooks still activate normally.
+- Documentation Language packs (Spanish, German, French, pt-BR, Polish, Russian, Japanese, Korean, Simplified Chinese) via **Download & Replace**; one pack at a time; `DOCS_I18N_BASE_URL` for forks.
+- Rotating automatic backups (daily/weekly/monthly) under Settings → Advanced.
+- **Recent** is the new default chat sort (by last-message activity); Newest/Oldest now sort by creation date.
+- Imported **webhook** tools always arrive **disabled** with hidden chat context **off**, regardless of what the file requested. Static and Script tools keep their imported enabled state.
+- Z.AI image generation; per-chat Illustrator image-connection override; custom agents with an **Image Prompt** result type gain Illustrator-style controls (#4337).
+- Contributor-facing: `pnpm check` now includes localization gates; the regression suite is real and substantial; `pnpm dev:server` builds shared first (#4327).
 
 ---
 
@@ -80,7 +112,7 @@ If the question spans multiple areas (common), read all relevant files before an
 
 The user wants to build something they'll keep on their own install or distribute themselves — character, lorebook, custom tool, agent, **theme**. **No PR is involved.** None of the contributor-mode rules apply here. Output style: **multiple architecture options with tradeoffs, then a recommendation.**
 
-> **In-app shortcut (v2.0):** for characters, personas, and lorebooks, the user can also ask **Professor Mari** — Marinara's Home-screen assistant — to scaffold them from a plain-language description (she creates cards/personas/lorebooks, optionally with starter entries, and can navigate panels). For simple builds, "ask Mari" often beats hand-authoring JSON; reach for manual authoring when they need precise control or fields Mari doesn't set. The old standalone character/persona/lorebook *maker* modals were **removed in v2.0** — don't tell users to open them. As of 2.2, Home Mari (and legacy Mari chats) also surface **color-coded suggestion chips / guided-creation quick replies** — step-by-step creation, editing, and contextual next-action follow-ups — so the user can drive a build by tapping chips rather than typing every prompt. As of 2.3, Mari also **drafts and saves Conversation About Me bios** and can **compare and recommend all 29 official downloadable agent packages** — if the user's want maps to an official package, "ask Mari which agent to install" is a legitimate first move.
+> **In-app shortcut (v2.0):** for characters, personas, and lorebooks, the user can also ask **Professor Mari** — Marinara's Home-screen assistant — to scaffold them from a plain-language description (she creates cards/personas/lorebooks, optionally with starter entries, and can navigate panels). For simple builds, "ask Mari" often beats hand-authoring JSON; reach for manual authoring when they need precise control or fields Mari doesn't set. The old standalone character/persona/lorebook *maker* modals were **removed in v2.0** — don't tell users to open them. As of 2.2, Home Mari (and legacy Mari chats) also surface **color-coded suggestion chips / guided-creation quick replies** — step-by-step creation, editing, and contextual next-action follow-ups — so the user can drive a build by tapping chips rather than typing every prompt. As of 2.3, Mari also **drafts and saves Conversation About Me bios** and can **compare and recommend all 31 official downloadable agent packages** (2.4.0 count, including Long-Term Memory and Storyboard) — if the user's want maps to an official package, "ask Mari which agent to install" is a legitimate first move. As of 2.3.5 she is also the **only** author of Personal Extensions: she writes and saves the draft code, but she cannot enable or approve it — the user must inspect it and approve the exact SHA-256 hash themselves. In 2.4.0 her own chat history gained multi-select and bulk delete (#4353).
 
 ### 1. Restate the goal (one sentence)
 Show you understood. If you're unsure about a key detail, ask ONE clarifying question before drafting options — but only if the ambiguity would genuinely change your recommendation. Don't stall.
@@ -117,10 +149,14 @@ When mapping an idea to Marinara Engine, ask these questions in order:
 2. **Is the knowledge large but stable?** → It goes in a lorebook with keyword triggers.
 3. **Does the knowledge change often?** → It goes behind a custom tool with a `webhook` execution type that hits a live source.
 4. **Does the character need to *do* things (write files, modify your app, query your DB, call an API)?** → Custom tool. Static for stubs, webhook for anything real, script for pure computation.
-5. **Does an official downloadable agent package already do this? (v2.3)** → Check the 29-package catalog (Agents → Download Agents) before building anything custom — it covers common wants (Maps, Calls, Illustrator, Music DJ, Card Evolution, Lorebook Keeper, table games), and Mari can compare and recommend packages. Fresh installs contain **no** optional agents, so any recommendation that relies on a package must include the install step. As of 2.3.4, third-party packages can also come from **custom GitHub agent repositories** in the Agents Manager (#3861) — disabled by default, manual preview/apply (no auto-sync), and an explicit per-repo trust confirmation — the recommended path for sharing functionality, but only from sources the user already trusts. Note that agent files imported directly arrive **tool-less under a fresh identity** (#3953): any recommendation involving a shared agent file must include the step of explicitly re-attaching its tools after import.
-6. **Does something need to happen automatically on every turn?** → Custom agent in the appropriate phase (pre-generation, parallel, or post-processing).
-7. **Does the UI itself need to change?** → For look-and-feel: native Appearance settings or a custom theme (Settings > Addons). For new UI functionality: there is **no user-side path as of v2.3.4** (client extensions were removed) — it's a capability package, a custom GitHub agent repository (#3861), or an engine PR (Mode B).
-8. **Does it cross chats or need persistent structured state the engine doesn't already track?** → Webhook tool + your own backend; the engine's persistence is scoped to chats/characters/lorebooks.
+5. **Does an official downloadable agent package already do this? (v2.3+)** → Check the **31**-package catalog (Agents → Download Agents) before building anything custom — it covers common wants (Maps, Calls, Illustrator, Music DJ, Card Evolution, Lorebook Keeper, table games), and Mari can compare and recommend packages. Fresh installs contain **no** optional agents, so any recommendation that relies on a package must include the install step. As of 2.3.4, third-party packages can also come from **custom GitHub agent repositories** in the Agents Manager (#3861) — disabled by default, manual preview/apply (no auto-sync), and an explicit per-repo trust confirmation — the recommended path for sharing functionality, but only from sources the user already trusts. Note that agent files imported directly arrive **tool-less under a fresh identity** (#3953): any recommendation involving a shared agent file must include the step of explicitly re-attaching its tools after import.
+6. **Does something need to happen automatically on every turn?** → Custom agent in the appropriate phase (pre-generation, parallel, or post-processing). **As of 2.4.0 (#4305), a custom agent only receives the context it explicitly asks for** — the default is chat history *only*. If the agent needs the character card, persona, activated lorebook entries, chat summary, Author's Note, tracker data, or recalled memories, those must be ticked on in the agent's Context Sources. Any recommendation involving a custom agent that reasons about the character or the lore must include that step.
+7. **Does the UI itself need to change?** → Three tiers, in order of increasing effort:
+   - *Look-and-feel only* → native Appearance settings or a custom theme (Settings > Addons).
+   - *New UI functionality on this user's own install* → a **Personal Extension** (v2.3.5+). Ask Professor Mari to draft it; the user reviews the code, approves the exact SHA-256 hash, and enables it. It runs in a sandboxed Worker and can add top-bar buttons, Extensions-menu items, and right-side panels through `marinara.ui.registerContribution(...)` — but only from Marinara's fixed control set, and it never touches host DOM, network, or the database. Check `references/extensions.md` for what the sandbox *can't* do before promising a feature.
+   - *Functionality to distribute to others* → an official agent package, a custom GitHub agent repository (#3861), or an exported extension package the recipient must review and approve.
+   - *Anything needing real host-page authority* (arbitrary DOM, `/api` calls, network) → **Full page access** External Extensions exist but are deliberately un-sandboxed, gated behind two opt-ins, and unavailable to Mari drafts — treat as a last resort. Otherwise it's an engine PR (Mode B).
+8. **Does it cross chats or need persistent structured state the engine doesn't already track?** → Webhook tool + your own backend; the engine's persistence is scoped to chats/characters/lorebooks. (A Personal Extension gets its own private `marinara.storage` bag and can key state by `chatId`/`characterId` via the v5 context API — good for per-chat UI state, not a general database.)
 
 See `references/decision-guide.md` for the full version with examples.
 
@@ -130,9 +166,13 @@ Users often want to do things the wrong way. Be willing to redirect:
 
 - **"I'll put all 500 site configs in the system prompt"** → No. Lorebook (if keyword-triggered retrieval works) or webhook tool with a real backend (if lookup is structured).
 - **"I'll use a script tool to call an API"** → The script sandbox has no `fetch`, no `require`, no network. Use webhook instead.
-- **"I'll write an extension / custom JS for the UI"** → The client extension feature was removed in v2.3.4 — the engine no longer loads user CSS/JS, and retained extension records are permanently erased at startup. Redirect: visual changes → native Appearance settings or a custom theme (Settings > Addons); new functionality → an official downloadable agent package or a custom GitHub agent repository (#3861); deeper UI changes → an upstream PR (Mode B).
+- **"Extensions were removed, so I can't do UI work"** → **Stale.** They came back in v2.3.5 as sandboxed Personal Extensions. Don't repeat the 2.3.4 removal line as current fact.
+- **"I'll write an extension that grabs the chat messages / calls `/api` / queries the DOM"** → That's the *old* pre-sandbox model and it will not run. A sandboxed Browser Extension gets private storage, logging, timers, the fixed UI control set, and a read-only snapshot of active chat/character IDs — plus bounded card fields *only* with approved `read_active_characters` / `read_active_persona` permissions. It never gets messages, creator notes, system prompts, full libraries, chat metadata, the database, network, or any mutation. If the design needs those, it needs a broker capability in the engine (Mode B), not a cleverer extension.
+- **"I'll just use Full page access to get around the sandbox"** → Possible but wrong by default. It requires `ENABLE_EXTERNAL_EXTENSIONS=true` on the host *and* a Danger Zone opt-in, Professor Mari cannot draft it, and it has the same authority as pasting code into the browser console. Recommend it only for a legacy package the user already trusts and has read.
+- **"I'll build a Server Extension"** (on Windows or Android) → It won't run. Server Extensions require macOS Seatbelt or Linux `bwrap`; where no OS sandbox exists they stay disabled and Marinara never falls back to running them unsandboxed. Check the user's platform before recommending one.
 - **"I'll make the character memorize current events"** → Knowledge stale on day one. Webhook tool + scheduled scraper.
-- **"I'll build a custom agent for something an official package already does"** → Check Agents → Download Agents first. The 29-package catalog covers Maps, Calls, Illustrator, Music DJ, Card Evolution, Lorebook Keeper, and the table games. Remember fresh installs ship no optional agents — include the install step in the recommendation.
+- **"I'll build a custom agent for something an official package already does"** → Check Agents → Download Agents first. The 31-package catalog covers Maps, Calls, Illustrator, Music DJ, Card Evolution, Lorebook Keeper, Long-Term Memory, Storyboard, and the table games. Remember fresh installs ship no optional agents — include the install step in the recommendation.
+- **"My custom agent knows the character card"** → Not by default since 2.4.0. Custom agents start with chat history only; every other context source is opt-in per agent (#4305). An agent that silently "forgot" the lore after upgrading is almost always this.
 - **"I'll build everything as custom agents"** → Custom agents fire every turn and cost tokens. Only use them for things that genuinely need per-turn automation (tracking state, rewriting output, injecting context based on scene). When you DO recommend multiple agents, scope each one tightly — one job per agent.
 - **"I'll hardcode the tool's result in the static type"** → Static is a stub. It returns a fixed string. Useful for testing, useless in production.
 - **"I'll skip the lorebook and cram it all in description"** → Character description is always in context. Lorebook entries are only pulled in when keywords match. If the knowledge is big, lorebook saves tokens on every turn.
@@ -173,11 +213,12 @@ Sometimes they'll ask general questions ("how does X work", "what's the differen
 
 ### Honesty about the engine's limits
 
-Marinara Engine is an actively-developed indie project, on its 2.3 stable line (2.3.4 at the last reference sync). Some things it doesn't have (as of the last reference update):
+Marinara Engine is an actively-developed indie project, on its **2.4 stable line (v2.4.0, released 2026-08-01)** at the last reference sync. Some things it doesn't have (as of the last reference update):
 - No native vector DB beyond lorebook embeddings (all-MiniLM-L6-v2 is built in for message RAG; plugging in Pinecone/Weaviate means a webhook tool hitting your own backend, or forking the engine).
-- **No extension system (removed in v2.3.4).** The client extension feature is gone entirely — no user CSS/JS loading, no `marinara` API, and the first 2.3.4 startup permanently erases retained extension records and extension storage. Visual customization is themes / native Appearance; functionality is agent packages or custom repos; anything beyond that is an upstream PR or a fork.
+- **The extension system exists but is deliberately narrow.** Sandboxed Browser Extensions cannot reach messages, presets, lorebooks, undeclared card fields, chat metadata, the DOM, the database, or the network — the sandbox is a capability allowlist, not a soft guideline. Anything outside it needs a new broker capability in the engine (a PR) or the un-sandboxed Full page access escape hatch. Server Extensions don't exist at all on Windows or Android.
 - Script tools can't access the network.
-- Two distribution lanes for functionality (v2.3.4) — don't conflate them. **Official agent packages** have an in-app catalog: Agents → Download Agents installs 29 verified packages, auto-updating, with per-Engine-major catalog lanes. **Custom GitHub agent repositories** (#3861) are the third-party lane: disabled by default, manual preview/apply (no auto-sync), and an explicit per-repo trust confirmation.
+- Three distribution lanes for functionality — don't conflate them. **Official agent packages**: in-app catalog, Agents → Download Agents, 31 verified packages, update-on-confirm (2.3.5 replaced silent startup updates with a per-version prompt), per-Engine-major catalog lanes, restricted to canonical Marinara-Agents URLs. **Custom GitHub agent repositories** (#3861): disabled by default, manual preview/apply, explicit per-repo trust confirmation. **Exported extension packages**: portable but always arrive disabled and unapproved, and land in External Extensions, which stays hidden until both gates are open.
+- Only **one documentation language pack** can be installed at a time — "Download & Replace" removes the previous one. Untranslated guides fall back to English with an `EN` badge.
 - Custom tool `parametersSchema` is JSON Schema but the UI validation is limited; malformed schemas may silently misbehave.
 - Core prompt assembly pipeline isn't extensible by arbitrary user code. As of 2.3, **official packages** can plug in server runtimes, commands, and client surfaces via the capability API (1.3) — but outside that reviewed packaging path you still can't hook into prompt assembly without forking.
 
@@ -247,10 +288,13 @@ If you (the AI) don't have a concrete spec yet, push the user to keep diagnosing
 - One PR per logical change. Don't bundle unrelated cleanup into a bug fix.
 - Branch from `staging` after syncing upstream — **active development happens on `staging`, not `main`** (per `CONTRIBUTING.md`). **Open PRs against `staging`**: the GitHub UI defaults the base to `main`, so change it when filing. Never target `main` directly — it's the maintainers' release branch. (Note: install/update guides still track `main`, since users install released versions.) (Personal git remote setup is in your local dev-personal skill if you have one.)
 - Keep diffs small. If it grows past ~500 LOC or ~8 files, consider splitting.
-- Run the validation trio before committing:
-  - `pnpm check` (lint + production build) — required, CI runs this
+- Run the validation gates before committing:
+  - `pnpm check` — required, CI runs this. **This is no longer just lint + build.** It is `clean:stale-client && impeccable:check && localization:check && lint && build`, so it also fails on unlocalized UI strings (see below).
   - `pnpm version:check` — required if you touched any version-bearing file
   - `pnpm guard:installer-artifacts` — required, CI runs this
+  - `pnpm regression` (or the targeted `pnpm regression:<area>` for the area you touched) — the engine now has a real regression suite; see "Validation reference" below
+  - `pnpm credits:check` — only when cutting a release; run `pnpm credits:sync` if it reports stale contributor credits
+- **New user-visible UI strings must be localized or `pnpm check` fails.** English (`en.json`) is canonical and the runtime fallback. New and substantially edited components use semantic `t("area.control.label")` keys. A feature PR must add or update the **canonical English key**; it does *not* have to translate all 12 community locales — only supply a translation where you can genuinely provide one, and never paste English into a community locale as filler. Arabic is right-to-left, so any new layout needs to survive RTL. See `docs/development/localization.md`.
 - Stage specific files (`git add path/to/file`). **Never** `git add -A` or `git add .` — picks up `.claude/`, scratch files, user data.
 - Commit with a conventional-commits message: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `ci:`. Match the repo's existing tone.
 - **Don't add bot self-attribution to commits or PRs.** No "🤖 Generated with Claude Code" trailer, no "Co-Authored-By: Claude" line, no AI signature in PR descriptions. Marinara's maintainers prefer commits and PRs that read as the contributor's work. Only include an attribution line if the user explicitly asks for it.
@@ -258,9 +302,11 @@ If you (the AI) don't have a concrete spec yet, push the user to keep diagnosing
 - **Update affected docs in the same PR.** If your change touches user-visible behavior (install flow, env vars, launchers, releases, FAQ topics), update the relevant doc as part of THIS PR. Stale docs are a real failure mode and the contributor guide requires it.
   - `README.md` — user-facing overview, quickstart
   - `CHANGELOG.md` — release notes (if the change ships in a release)
-  - `docs/CONFIGURATION.md` — env vars, ports, HTTPS, launcher behavior, `.env` reference (as of 2.3.3 this territory includes `CHAT_GENERATION_TIMEOUT_MS` for slow providers and `AUTO_UPDATE_ENABLED=false` for a persistent launcher update opt-out)
+  - `docs/CONFIGURATION.md` — env vars, ports, HTTPS, launcher behavior, `.env` reference. Timeouts: `CHAT_GENERATION_TIMEOUT_MS` (also governs time-to-first-byte for background generation as of 2.4.0), `AGENT_CALL_TIMEOUT_MS` (2.3.5), `GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS` (2.4.0). Security/network: `TRUSTED_HOSTS` (2.3.5 DNS-rebinding guard), `REQUIRE_AUTH_FOR_DOCKER_PROXY` (2.4.0, defaults `true`), `ENABLE_EXTERNAL_EXTENSIONS`. Other: `AUTO_UPDATE_ENABLED=false` for a persistent launcher update opt-out, `DOCS_I18N_BASE_URL` for forks mirroring the docs packs.
   - `docs/TROUBLESHOOTING.md` — common user-facing issues and fixes
   - `docs/FAQ.md` — user FAQ (LAN access, common questions)
+  - `docs/<area>/*.md` — the end-user guide tree (`agents/`, `chats/`, `characters/`, `extending/`, `prompts/`, `settings/`, …). If your change alters user-visible behavior, the matching guide is the doc to update.
+  - **Language packs on the `docs-i18n` branch** — the contributor guide requires keeping every language pack in step when guides change. Changing an English guide without flagging the pack impact is now a review finding, not a nicety.
   - `android/README.md` — Android wrapper / Termux-specific
   - `CONTRIBUTING.md` — only for contributor-workflow changes (rare)
 
@@ -408,16 +454,23 @@ This avoids the stacking failure mode where one agent juggles three PRs and rush
 ```bash
 pnpm install              # first time or after dependency changes
 pnpm dev                  # runs shared build, then server + client with HMR
-pnpm check                # lint + production build (CI runs this)
+pnpm check                # clean:stale-client + impeccable:check + localization:check + lint + build (CI runs this)
 pnpm version:check        # version-bearing files must match root package.json (CI runs this)
 pnpm guard:installer-artifacts   # no tracked .exe files (CI runs this)
+
+pnpm regression           # full regression sweep — ~25 suites, ends with the Playwright UI smoke
+pnpm regression:<area>    # targeted: prompt, roleplay, noodle, providers, backup, localization, docs,
+                          # extensions-security, agent-import-security, request-security, sprites, …
+pnpm smoke:ui             # Playwright browser sweep on its own
 ```
 
 Dev URLs: client at `http://localhost:5173`, server at `http://localhost:7860`.
 
-**Restart `pnpm dev` fully when you edit `packages/shared/**`** — the shared package only rebuilds at startup via `pnpm build:shared`. HMR handles client/server changes but not shared.
+**Restart `pnpm dev` fully when you edit `packages/shared/**`** — the shared package only rebuilds at startup via `pnpm build:shared`. HMR handles client/server changes but not shared. `pnpm dev:server` and `pnpm dev:client` now build shared first themselves (#4327), but the rebuild-and-restart boundary still applies to an already-running process.
 
-There is **no meaningful automated test suite yet** — don't reference `pnpm test` as a gate in PR descriptions. Manual verification is the gate.
+**Correction on testing (this changed).** Older guidance said Marinara had no meaningful automated test suite. **That is no longer true.** There is a substantial `tsx`-driven regression suite under `scripts/regressions/` plus a Playwright UI smoke (`pnpm smoke:ui`, isolated desktop/mobile projects and fixture data as of 2.4.0). Run the suites covering the area you touched, and name them in the PR test plan.
+
+**This does not relax the manual-testing rule.** The regression suites cover server logic, security invariants, and a thin UI smoke — they do not catch "invisible in light mode," "breaks at 400px," or "throws on empty input." Green regressions are an *additional* floor, not a substitute for the user clicking through the feature. Both are required; neither replaces the other.
 
 ### Version drift (if you touch any version-bearing file)
 
@@ -436,7 +489,9 @@ The Marinara root version lives in `package.json`. When that changes, **all** of
 | `android/app/build.gradle` | Android `versionName` AND `versionCode` |
 | `README.md` | "Current stable release" line |
 
-**Android rule:** `versionName` must match the app version. `versionCode` must increase monotonically for every shipped APK — never reuse, never decrement. Baseline: `versionCode` is **39** at v2.3.4 (34/35/37/38 at 2.3.0/2.3.1/2.3.2/2.3.3), so the next shipped APK must exceed 39. Release-identity sync now also covers the Home release link and the What's New announcement.
+**Android rule:** `versionName` must match the app version. `versionCode` must increase monotonically for every shipped APK — never reuse, never decrement. Baseline: `versionCode` is **41** at v2.4.0 (34/35/37/38/39/40 at 2.3.0/2.3.1/2.3.2/2.3.3/2.3.4/2.3.5), so the next shipped APK must exceed 41. Release-identity sync also covers the Home release link and the What's New announcement.
+
+*Note:* `CONTRIBUTING.md`'s own touchpoint table lists only 8 files — it omits `packages/client/public/manifest.json` and `README.md`. The table above (10) matches what `scripts/versioning.mjs` actually syncs and checks, so trust it over the prose table.
 
 **Don't edit these by hand.** Use the helper:
 
