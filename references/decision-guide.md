@@ -11,7 +11,9 @@ Before architecture, pick the **mode** the experience runs in — this is orthog
 - **Game** — GM-driven interactive fiction (Game Mode): the engine runs a game master over narration, storyboards, and scene beats. Pick it for structured, quest-like play. As of 2.3, setup includes a **Combat Preference** — classic narrative combat or tactical grid battles on a deterministic seeded engine with four difficulty levels — chosen in the setup wizard and changeable later via Chat Settings → Combat Style; game setups also export/import as reusable versioned `.marinara-game-setup.json` bundles that refill the New Game wizard.
 - **Noodle (v2.2)** — Marinara's fake social network: invited characters (and optional random users) post, reply, poll, like, repost, and mention each other on a persistent, refreshing timeline; **personas participate directly**, and social memory carries over into Conversation/Roleplay/Game. Pick it for social-feed / timeline personas — a living multi-character social simulation rather than a direct chat. As of 2.3, the **Noodle Prompt** is user-editable at the top of Noodle Settings (full-screen editor, one-click default restore), Professor Mari is excluded from the timeline by default, and world/lore context and chat carryover each get a fixed 8,192-token budget. See `references/architecture.md` for the full Noodle section.
 
-## The Nine Questions
+## The Decision Questions
+
+Walk them in order and stop at the first that fits. Numbering is not contiguous — question 6 splits into **6** (how the UI *looks*) and **6b** (adding UI *functionality*), because v2.3.5 restored a user-side path for the latter. SKILL.md's decision hierarchy folds 6 and 6b into a single three-tier item, so the two lists expand the same territory rather than mapping one-to-one.
 
 ### 1. Is the entire knowledge set small and completely stable?
 **Small** = under ~2000 tokens of reference material. **Stable** = won't change for months.
