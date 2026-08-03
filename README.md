@@ -25,6 +25,18 @@ This skill is strongest on the **user-facing** side of Marinara — characters, 
 
 That distinction is deliberate and worth stating plainly: Marinara is ~483k lines of TS/TSX, and the logic concentrates in a handful of very large files — `game.routes.ts` (~13k lines), `GameSurface.tsx` (~12.2k), `ChatSettingsDrawer.tsx` (~10.2k), `generate.routes.ts` (~9.3k). **None of them has been read end to end for this skill.** The references were built from schemas, docs, changelogs, and targeted greps. For work that means real surgery inside those files, this skill will get you the workflow but not the map — that belongs in a separate, architecture-focused expert skill.
 
+This gap wasn't a deliberate exclusion so much as an unnoticed one: the skill grew out of user-facing questions, and nothing forced the engine-interior gap to surface until someone actually tried to modify the engine with it and found the knowledge thin.
+
+### Using this for engine-side work? Please open an issue
+
+If you reach for this skill to change the Marinara codebase itself and it comes up short, **that's useful signal — [open an issue](../../issues/new?template=engine-knowledge-gap.md) saying which area let you down.** Concretely helpful:
+
+- **Which file or subsystem** you were working in (`generate.routes.ts`, the agent pipeline, Game state, the prompt assembler, Noodle, the capability API…).
+- **What you needed to know** that the skill couldn't tell you — a call path, a data flow, where a piece of state actually lives, which of several similar functions is the live one.
+- **What you had to do instead** — usually "read N thousand lines to find out," which is exactly the cost worth eliminating.
+
+Engine-interior coverage will get built where people actually hit the wall, rather than by guessing which of a handful of very large files to document first. Reports beat speculation here.
+
 ## Knowledge architecture
 
 The skill uses three tiers of authority:
@@ -72,4 +84,4 @@ The skill triggers when users mention Marinara Engine, Professor Mari, SpicyMari
 
 ## License
 
-MIT. Pull requests welcome, especially for outdated content as the engine evolves.
+MIT. Pull requests welcome, especially for outdated content as the engine evolves — and issues are just as welcome for **engine-side knowledge gaps** (see [Scope](#scope-user-facing-not-engine-interior)).
