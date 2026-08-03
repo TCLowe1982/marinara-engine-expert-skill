@@ -37,6 +37,8 @@ If you reach for this skill to change the Marinara codebase itself and it comes 
 
 Engine-interior coverage will get built where people actually hit the wall, rather than by guessing which of a handful of very large files to document first. Reports beat speculation here.
 
+**Two trackers, either is fine.** The link above resolves to whichever copy of the repo you're reading. The canonical tracker for the skill as a whole is the upstream repo, [cha1latte/marinara-engine-expert-skill](https://github.com/cha1latte/marinara-engine-expert-skill/issues) — file there if you want the original author to see it. This fork also takes issues, and is where the per-release engine syncs and audits happen, so reports about *current* engine coverage land closest to the work here.
+
 ## Knowledge architecture
 
 The skill uses three tiers of authority:
