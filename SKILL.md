@@ -25,6 +25,7 @@ Marinara Engine changes frequently (active development, new releases on an irreg
 - Repo: `https://github.com/Pasta-Devs/Marinara-Engine`
 - Raw file fetch pattern: `https://raw.githubusercontent.com/Pasta-Devs/Marinara-Engine/<branch>/<path>` — use `staging` to check current/in-development behavior (active development happens there), `main` for released behavior.
 - When in doubt, check: `CHANGELOG.md`, `README.md`, `CONTRIBUTING.md`, `docs/development/frontend.md` (**moved** — it was `docs/FRONTEND.md` before 2.4), and the relevant file under `packages/server/src/`, `packages/client/src/`, or `packages/shared/src/schemas/`.
+- Notable guide paths: `docs/agents/` (agents-overview, built-in-agents, custom-agents, memory, knowledge-sources, approvals-and-agent-suite, hierarchical-maps) · `docs/chats/` (chat-settings, settings-profiles, group-chats, connected-chats, branches, guided-and-impersonate, messages, peek-prompt, slash-commands, export-import, managing-chats, sending-and-streaming) · `docs/characters/` (creating-and-editing-characters, personas, sprites, galleries, library-organization, import-export, colors-and-stats, bot-browser, choosing-your-persona) · `docs/lorebooks/` (overview, entries, token-budgets, semantic-search, linking-to-characters, import-export) · `docs/extending/` (custom-tools, regex-scripts, personal-extensions) · `docs/prompts/` (macros, presets) · `docs/data/` (backup-and-restore, where-data-is-stored, importing-from-sillytavern, clearing-data) · `docs/development/` (frontend, localization, personal-extensions, architecture-map, file-storage, optional-agent-packages).
 - End-user documentation now lives in a structured `docs/` tree (`docs/agents/`, `docs/chats/`, `docs/extending/`, `docs/prompts/`, `docs/settings/`, …) with `docs/development/` for contributor material. For a user-facing "how does X work" question, the matching guide under `docs/` is usually the fastest authoritative answer.
 
 Announce a fetch briefly ("Let me check the current schema in the repo...") rather than silently doing it. The user likes visibility.
@@ -77,6 +78,20 @@ Read the relevant reference file before giving architectural advice in that area
 | **Interface language** (UI localization, 12 locales, Arabic RTL) vs. **Documentation Language** (downloadable doc packs from the `docs-i18n` branch, `DOCS_I18N_BASE_URL`) — two separate settings, don't conflate them | `references/architecture.md` |
 
 If the question spans multiple areas (common), read all relevant files before answering. Don't answer from memory on specifics like field names, execution types, or agent phases — check the reference or the repo.
+
+## Starter templates (`assets/`)
+
+When the user says yes to "want me to build it," start from the matching template rather than authoring from scratch — they encode the current schema and the defaults that bite.
+
+| Building… | Template |
+|---|---|
+| A character card | `assets/character-card.template.json` |
+| A custom agent | `assets/custom-agent.template.json` — ships an explicit `contextSources` block, because as of v2.4.0 an agent with none defaults to chat-history-only |
+| A webhook custom tool | `assets/custom-tool-webhook.template.md` |
+| A lorebook entry | `assets/lorebook-entry.template.json` |
+| A Personal Extension | `assets/personal-extension.template.js` — sandboxed contribution panel, context API v5, cleanup, and the manifest `capabilities` block |
+
+Read the template, then adapt it to the user's spec. Don't paste one unedited — the placeholders are prompts for the behavioral spec you should have asked for.
 
 ## Recent release deltas (through v2.4.0, 2026-08-01)
 
@@ -156,7 +171,7 @@ When mapping an idea to Marinara Engine, ask these questions in order:
    - *New UI functionality on this user's own install* → a **Personal Extension** (v2.3.5+). Ask Professor Mari to draft it; the user reviews the code, approves the exact SHA-256 hash, and enables it. It runs in a sandboxed Worker and can add top-bar buttons, Extensions-menu items, and right-side panels through `marinara.ui.registerContribution(...)` — but only from Marinara's fixed control set, and it never touches host DOM, network, or the database. Check `references/extensions.md` for what the sandbox *can't* do before promising a feature.
    - *Functionality to distribute to others* → an official agent package, a custom GitHub agent repository (#3861), or an exported extension package the recipient must review and approve.
    - *Anything needing real host-page authority* (arbitrary DOM, `/api` calls, network) → **Full page access** External Extensions exist but are deliberately un-sandboxed, gated behind two opt-ins, and unavailable to Mari drafts — treat as a last resort. Otherwise it's an engine PR (Mode B).
-8. **Does it cross chats or need persistent structured state the engine doesn't already track?** → Webhook tool + your own backend; the engine's persistence is scoped to chats/characters/lorebooks. (A Personal Extension gets its own private `marinara.storage` bag and can key state by `chatId`/`characterId` via the v5 context API — good for per-chat UI state, not a general database.)
+8. **Does it need persistent structured state?** → **Check variable macros first.** `{{setvar::name::value}}` / `{{getvar::name}}` (plus `addvar`/`incvar`/`decvar`) are real in-engine state and cover per-chat counters, flags, and small structured values — affection scores, day counters, whether an event has fired. Only reach for a **webhook tool + your own backend** when the data must outlive or span chats, or is genuinely large or externally owned. (A Personal Extension gets its own private `marinara.storage` bag and can key state by `chatId`/`characterId` via the v5 context API — good for per-chat UI state, not a general database.)
 
 See `references/decision-guide.md` for the full version with examples.
 
@@ -173,7 +188,7 @@ Users often want to do things the wrong way. Be willing to redirect:
 - **"I'll make the character memorize current events"** → Knowledge stale on day one. Webhook tool + scheduled scraper.
 - **"I'll build a custom agent for something an official package already does"** → Check Agents → Download Agents first. The 31-package catalog covers Maps, Calls, Illustrator, Music DJ, Card Evolution, Lorebook Keeper, Long-Term Memory, Storyboard, and the table games. Remember fresh installs ship no optional agents — include the install step in the recommendation.
 - **"My custom agent knows the character card"** → Not by default since 2.4.0. Custom agents start with chat history only; every other context source is opt-in per agent (#4305). An agent that silently "forgot" the lore after upgrading is almost always this.
-- **"I'll build everything as custom agents"** → Custom agents fire every turn and cost tokens. Only use them for things that genuinely need per-turn automation (tracking state, rewriting output, injecting context based on scene). When you DO recommend multiple agents, scope each one tightly — one job per agent.
+- **"I'll build everything as custom agents"** → Custom agents fire every turn and cost tokens — **but that's tunable, so don't just say no.** Set **Activation Keywords** (up to 100 phrases) with a scan depth (default 5, max 200) and the agent runs only when the scene is actually relevant; pair that with a narrow `contextSources` set and an agent can be genuinely cheap. Offer the keyword-gated version before advising against the agent. Only use them for things that genuinely need per-turn automation (tracking state, rewriting output, injecting context based on scene). When you DO recommend multiple agents, scope each one tightly — one job per agent.
 - **"I'll hardcode the tool's result in the static type"** → Static is a stub. It returns a fixed string. Useful for testing, useless in production.
 - **"I'll skip the lorebook and cram it all in description"** → Character description is always in context. Lorebook entries are only pulled in when keywords match. If the knowledge is big, lorebook saves tokens on every turn.
 
@@ -375,6 +390,15 @@ robocopy '<AppData>\Local\MarinaraEngine\packages\server\data' '<AppData>\Local\
 
 This pattern is highly recommended but not strictly required — if the user prefers a simpler one-directory workflow, respect that. Just don't pretend you've tested without actually running the engine somewhere.
 
+### 4b. Approval and merge rules (who can actually land your PR)
+
+Worth stating up front for a first-time contributor, because the answer is specific (`CONTRIBUTING.md`):
+
+- **Pasta-Devs org members / owners** — no separate human approval required. Members with merge permission may merge a ready PR into `staging` themselves.
+- **Outside and first-time contributors** — may submit **only to `staging`**, and need an approving review from repository owner **SpicyMarinara** *in addition to* the automated gates. An approving review from a different Pasta-Devs member does **not** substitute.
+
+*(v2.4.0, #4361)* The outside-contributor approval gate is no longer recreated by **PR description edits, CodeRabbit comments, or non-owner reviews** — it still refreshes for base-branch changes and for approval-relevant SpicyMarinara reviews. So editing your own PR body to fix a typo no longer resets your approval. If a contributor is nervous about touching their PR after review, tell them this.
+
 ### 5. Pre-submission checklist (mandatory — do not skip)
 
 **This applies to PRs to the Marinara engine ONLY.** Themes, custom CSS, and anything the user is keeping on their own install do not need this checklist (no PR = no review gate). Skip straight to "does it work in your install?" testing for those.
@@ -467,6 +491,8 @@ pnpm smoke:ui             # Playwright browser sweep on its own
 Dev URLs: client at `http://localhost:5173`, server at `http://localhost:7860`.
 
 **Restart `pnpm dev` fully when you edit `packages/shared/**`** — the shared package only rebuilds at startup via `pnpm build:shared`. HMR handles client/server changes but not shared. `pnpm dev:server` and `pnpm dev:client` now build shared first themselves (#4327), but the rebuild-and-restart boundary still applies to an already-running process.
+
+*(v2.4.0)* The desktop and mobile Playwright projects now run **isolated servers and fixture data**, help tooltips are non-blocking, focused mobile composers stay open during history scrolling, and appearance/Tracker smoke checks assert against live application state. Practical consequence: **state does not carry between the desktop and mobile projects** — if a cross-project failure appears, don't "fix" it by sharing fixtures; that's the exact coupling this change removed.
 
 **Correction on testing (this changed).** Older guidance said Marinara had no meaningful automated test suite. **That is no longer true.** There is a substantial `tsx`-driven regression suite under `scripts/regressions/` plus a Playwright UI smoke (`pnpm smoke:ui`, isolated desktop/mobile projects and fixture data as of 2.4.0). Run the suites covering the area you touched, and name them in the PR test plan.
 

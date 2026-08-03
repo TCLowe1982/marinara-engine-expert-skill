@@ -87,6 +87,8 @@ Agents cost real tokens and latency every turn. Only use them when the job genui
 
 **Doesn't fit:** Things that only need to happen occasionally (those should be tools the model calls when needed).
 
+**Before rejecting an agent on cost, gate it.** Set **Activation Keywords** (up to 100 phrases) and a **Scan Depth** (default 5, max 200) and the agent runs only when one of those keywords appears in that many recent messages — empty keywords means run every turn, which is the default and the reason unconfigured agents feel expensive. Combined with a narrow `contextSources` set, an occasional-but-automatic job is perfectly viable as an agent. "Only sometimes" is not automatically a tool.
+
 See `references/agents.md` for phases, default prompts, custom agent creation.
 
 ---
@@ -124,11 +126,13 @@ See `references/extensions.md` before committing to any extension design.
 
 ### 7. Does the solution need to cross chats, persist structured state, or integrate deeply with external systems?
 
-→ **Webhook tool + your own backend.** The engine's own persistence is scoped to chats, characters, personas, lorebooks, presets. If you need structured state outside that (CRM data, analytics, cross-user aggregation, ML pipelines, real databases) — you run that infrastructure yourself and expose it to the character via webhook tools.
+> **Check variable macros first.** The engine *does* have in-engine state: `{{setvar::name::value}}` writes, `{{getvar::name}}` reads, and `{{addvar}}`/`{{incvar}}`/`{{decvar}}` do arithmetic (`macro-engine.ts`; `docs/prompts/macros.md`). Per-chat counters, flags, thresholds, and small structured values — an affection score, a day counter, whether the party has met the duke — belong here, not behind a backend. Recommending infrastructure for state a macro handles is over-engineering, and it was this guide's default answer for too long.
 
-**Fits:** "My support assistant needs to log every conversation to our CRM," "the character needs to remember things globally across all my users," "I want vector search across 10 years of company docs."
+→ Once variables genuinely aren't enough: **Webhook tool + your own backend.** The engine's own persistence is scoped to chats, characters, personas, lorebooks, presets. If you need structured state outside that (CRM data, analytics, cross-user aggregation, ML pipelines, real databases) — you run that infrastructure yourself and expose it to the character via webhook tools.
 
-**Doesn't fit:** Anything inside the engine's native scope — use the native features.
+**Fits (genuinely beyond variables):** "My support assistant needs to log every conversation to our CRM," "the character needs to remember things globally across all my users," "I want vector search across 10 years of company docs."
+
+**Doesn't fit:** Anything inside the engine's native scope — use the native features. Small per-chat state is variable macros; per-chat UI state for a tool the user invokes is a Personal Extension's private `marinara.storage` (see 6b).
 
 ---
 
@@ -152,6 +156,12 @@ The surface depends on where the video should appear:
 ---
 
 ### 9. Does the user just need to rewrite/clean up prompt or output *text*? (Regex Scripts)
+
+> **Two settings decide whether the script does anything at all — name both.**
+> **Apply Mode** (Advanced Options) defaults to **Only Display**, which changes on-screen text only and leaves the prompt untouched. If the point is to change what the *model* reads, that must be **Only Prompt** or **Both**. And for a **User Input** script, Only Display/Both rewrite the message *before it is sent*, changing what is saved and transmitted — there is no display-only mode for outgoing user messages.
+> **Scoped Regex Scripts** (Chat Settings) defaults to **Disabled**, meaning character-scoped scripts don't run at all; the modes are Disabled / Exclusive / Chat. This is the usual cause of "I wrote a character regex and nothing happened."
+>
+> See `references/custom-tools.md` for the full field set.
 Text transform = find/replace on the strings flowing through the pipeline — strip a leftover prefix, swap a name on the way in or out, hide a control token, tidy formatting. **No** callable capability, **no** DOM change — just string rewriting.
 
 → **Regex Scripts** (SillyTavern-style). Scoped **per-character** and **per-preset**; a script is a regex `find` + `replace` applied to prompt and/or model output. SillyTavern regex scripts import over directly. This is a distinct modding surface — don't misuse a custom tool (Q4) or a theme (Q6) for text transforms.

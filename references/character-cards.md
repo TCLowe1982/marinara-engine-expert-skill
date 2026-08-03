@@ -97,6 +97,8 @@ Not all fields get sent to the model on every turn. Here's roughly what happens:
 
 They have similar fields but serve opposite roles. If the user asks "how do I give my character a detailed backstory," you're building a character. If they ask "how do I tell the AI about *me*," you're building a persona. The engine substitutes `{{user}}` in prompts with the active persona's name and injects the persona's data into the prompt too. **(v2.3)** Two caveats: a **Roleplay chat created with no Persona stays persona-less end-to-end** (first snapshot, provider prompt, scene generation, combat context) — only Conversation falls back to the globally active Persona. And `{{user}}` / `{{char}}` and other macros in `first_mes`, alternate greetings, and `/guided` instructions now resolve at the **final provider boundary** — including lorebook routing and embedding scans — so raw placeholders can no longer reach the model (#3704). **(v2.3.4)** Name Prefix History is now **persona-accurate per turn**: historical user turns stay labeled with the Persona that actually sent them, so switching Personas no longer rewrites earlier prefixes.
 
+**They're not a one-way street.** `docs/characters/personas.md` documents an **Add persona as character** action that converts a persona into a character card. So "I built this as a persona but now I want to chat *with* them" doesn't require rebuilding by hand — which the parallel-object-types framing above would otherwise imply. Personas can also be duplicated and deleted from the same panel.
+
 **(v2.3)** Both a character's metadata and a persona's lead their primary identity block with a clearly labeled **avatar upload/replace field** (same upload/crop flow as the editor portrait), above **Name** and the **Title / comment** field (synced with the editor-header field) — a short human label for the card, distinct from the model-facing `name`. **(v2.3)** Personas also gained an **Open Full Library** mirroring the Character Library — card grid, search, sorting, preview pane, paging, scroll restoration, and the editor return flow; both libraries use the Settings chroma text color. **(v2.3.4)** Editor polish: tracker-card color settings preview immediately and persist, and cropped avatars stay contained in their editor upload targets and no longer hijack page clicks (#3741/#3939).
 
 ## Conversation-mode Profile
@@ -136,6 +138,46 @@ Marinara replaces the macro with **the card's name** and adds **that card's char
 - If the referenced card is deleted, the reference breaks. For a stable shared canon that several cards depend on, a **lorebook** is still the more robust structure — use Character-ID macros for genuine character-to-character references.
 
 Docs: `docs/prompts/macros.md`.
+
+### The macro catalog — 58 macros, by category
+
+`packages/shared/src/utils/macro-engine.ts` implements **58** macros. The subset the references used to cover was a fraction of that, which read as complete — it wasn't. Categories below; `docs/prompts/macros.md` is the authoritative full list.
+
+**Variables — persistent in-engine state.** Read this before recommending a backend for state.
+
+| Macro | Effect |
+|---|---|
+| `{{setvar::name::value}}` | Stores a value, renders nothing |
+| `{{getvar::name}}` | Reads a stored value (empty if never set) |
+| `{{addvar::name::value}}` / `{{incvar::name}}` / `{{decvar::name}}` | Arithmetic updates |
+
+Parsed at `macro-engine.ts:1326-1336`. **This materially changes the persistence advice.** Per-chat counters, flags, and small structured state — affection scores, day counters, whether an event has fired — live here, not in a webhook plus your own backend. Reserve the backend recommendation for data that must outlive or span chats, or that is genuinely large or externally owned.
+
+**Context**
+
+| Macro | Effect |
+|---|---|
+| `{{input}}` | Most recent user message (backed by `ctx.lastInput`) |
+| `{{agent::TYPE}}` | Saved output of an agent/tracker type — renders only once that agent has run |
+| `{{outlet::name}}` | Content from lorebook entries positioned as **Outlet** with a matching outlet name |
+| `{{lastGenerationType}}` | A plain label: `normal`, `continue`, `regenerate`, `impersonate`, `guided`, `autonomous`, `turn_game`, `preview`, `game_setup`, `lorebook_scan`, … |
+| `{{model}}`, `{{chatId}}`, `{{characters}}`, `{{group}}` | Current model, chat id, cast |
+| `{{charSysInfo}}`, `{{charPostHistory}}` | Card system prompt / post-history text |
+| `{{idle_duration}}`, `{{timezone}}`, `{{time}}`, `{{date}}`, `{{datetime}}`, `{{weekday}}` | Temporal |
+
+`{{outlet::name}}` is **case-sensitive** — `{{outlet::character_rules}}` will not match an outlet named `Character_Rules`. It's the precise placement mechanism: the answer to "how do I control exactly where this lorebook entry lands in the prompt." See `lorebooks.md`.
+
+`{{lastGenerationType}}` pairs well with the conditional operators (`||`, `&&`, parentheses, equality-list shorthand) — it lets one card branch between a normal reply, a regenerate, and an impersonation.
+
+**Random:** `{{random::a,b,c}}`, `{{roll:XdY}}` (e.g. `{{roll:2d6}}` — and it resolves even when typed directly into the chat message box).
+
+**Text transforms:** `{{trim}}`, `{{trimStart}}`, `{{uppercase}}`, `{{lowercase}}`, `{{newline}}`, `{{noop}}`.
+
+**Profile / relocation (Conversation):** `{{convo_display}}`, `{{char_about}}`, `{{persona_about}}`, `{{convo_behavior}}`; and the relocation macros `{{context}}`/`{{status}}`, `{{commands}}`, `{{reactRules}}`, `{{replyRules}}`, `{{memories}}`, `{{lorebook}}`, which move an auto-inserted block to where you place it and suppress its automatic insertion.
+
+**Persona/character fields:** `{{description}}`, `{{personality}}`, `{{scenario}}`, `{{appearance}}`, `{{backstory}}`, `{{example}}`, and the `{{persona*}}` equivalents.
+
+> **Gotcha:** `{{message}}` is **not** a macro and never has been. Agent prompt templates render through `renderAgentPromptTemplate` → `buildAgentPromptMacroContext`, which has no `message` key, so it reaches the model as literal text. Use **`{{input}}`**.
 
 ### Theming the about-me popout
 
@@ -209,13 +251,43 @@ This flag is Mari-specific. The special **prompt injection** is gated by the har
 
 Characters can be imported from:
 - **SillyTavern** — granular per-type import (v2.0 improved the mappings): `st-character` (+ inspect/batch), `st-lorebook`, `st-preset`, `st-chat`, plus `st-bulk/scan` + `st-bulk/run` for importing a whole folder at once (all under `/api/import/*`). Handles characters, lorebooks, presets, and chat history.
-- **PNG files with embedded metadata** — the V2 spec standard. Drop the PNG into the Characters panel.
+- **PNG files with embedded metadata** — the V2 spec standard. Drop the PNG into the Characters panel. **(v2.3.5, #4002)** Marinara reads **three** PNG text-chunk types: `tEXt`, `iTXt`, and **compressed `zTXt`**. Character Tavern cards store their data in `zTXt`, which is why they used to fail to import; every parser (Card Browser, file/URL import, SillyTavern bulk import) now handles all three. Re-exporting such a card also **strips the stale compressed chunk** instead of shipping outdated card JSON alongside the current data.
 - **JSON files** — raw V2 card JSON.
 - **Chub.ai, CharacterTavern, JannyAI, Pygmalion, Wyvern, DataCat** — all searchable from the in-app **Card Browser**. **(v2.3)** Renamed from *Bot Browser*; the *Browse Online* entry point is now **Download Cards**, and the online browser opens as the **Cards Library** in the shared library shell. Provider fetches (Chub/CharacterTavern/Wyvern) were consolidated behind `safeFetch` (#3617).
 
 Characters can be exported as:
 - JSON (via the export endpoint)
 - PNG with embedded V2 card metadata (via the export endpoint)
+- **In bulk** — "Exporting many characters at once" (`docs/characters/import-export.md`), paired with **Bulk select, export, and delete** in the library.
+
+**(v2.4.0)** Character **names are whitespace-trimmed** on save and import (#4303). Minor, but it's the explanation for a class of baffling bugs where a trailing space silently broke name matching, macro substitution, or group-speaker prefixes.
+
+## Library organization
+
+Relevant whenever you recommend migrating a SillyTavern library rather than rebuilding it — a bulk import produces a lot of cards, and this is how they stay usable (`docs/characters/library-organization.md`):
+
+- **Favorites** (the `fav` field) and **tag chips** (the `tags` field) for quick filtering; filter by tag from the library.
+- **Folders** for grouping.
+- **Bulk select, export, and delete** for operating on many cards at once.
+
+> **Folders double as group-chat rosters.** This is the one to remember. A character folder isn't only an organizational bucket — it can seed a group chat's cast. "Put the cast in a folder, then open it as a group chat" is a real workflow, and it should shape how you advise structuring any multi-character project.
+
+## Version history
+
+Character and Persona cards keep a full revision history — the safety net that makes iterating on a card low-risk, and the right answer to *"what if the Card Evolution Auditor changes something I don't like."*
+
+**(v2.3.5, #4040)**
+- Restoring an older version **first saves the current card to history**, so the newer version is never lost.
+- Each saved version keeps **its own edit timestamp**, not the timestamp of the later save.
+- The side-by-side comparison view wraps long unbroken text (URLs, HTML in creator notes) instead of overflowing.
+
+**(v2.4.0, #4040)**
+- The **live card appears as the first, explicitly labelled current revision** in the list.
+- Saved revisions show **stable sequence numbers** and **second-precision** edit times.
+
+## Markdown preview (v2.4.0, #4306)
+
+Character, Persona, **and lorebook** text fields have Markdown preview toggles, and library detail views render formatted card text. Practical for authoring: formatting can be checked in the editor instead of round-tripping through a chat to see how it lands.
 
 ## Sprite System
 
@@ -224,6 +296,16 @@ Characters can have expression sprites for VN-style overlays in roleplay mode. S
 **(v2.3)** Sprite transparency is now **native-alpha-first**: generated sprites prefer the provider's native alpha channel. For providers that can't return transparent PNGs, the pipeline falls back to a subject-aware saturated chroma matte → border-connected soft matting → color despill; the neural background remover is reserved for genuinely complex backgrounds. Legacy white-background sprites remain cleanable, with restore points.
 
 **(v2.3.4)** Sprite downloads route through the **Android native file saver**, and on mobile the editor stacks the Upload control under each expression field (#3884).
+
+### Authoring sprites
+
+`docs/characters/sprites.md` covers the production end the references previously skipped: **Generating sprites with AI**, **Cleaning up sprite backgrounds**, **Exporting sprites**, and **How sprites show up in your chat**. Worth knowing because the skill otherwise only describes sprite *consumption* (the `expression` agent picking one) with no account of where sprites come from.
+
+**(v2.3.5)** Avatar editing was reworked: a non-overlapping miniature **AI wand**, equal **Upload/Generate** actions in Metadata, a downward upload arrow, and accent-colored removal controls.
+
+**(v2.3.5, #3974) Set as avatar** — Character and Persona **Gallery** images can be promoted to the card's avatar from both the grid and the full-size viewer, using path-contained, image-validated server copies. This closes the loop between the Illustrator/Gallery pipeline and the card's identity image, which are otherwise easy to treat as unrelated surfaces.
+
+> **Two galleries, one word.** `docs/characters/galleries.md` distinguishes the **card-level Gallery** from a **chat's gallery**. "Open the Gallery" is ambiguous — say which one.
 
 ## Sprites → Clips (Video-Call Presence) (v2.1)
 

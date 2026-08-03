@@ -33,7 +33,8 @@ This structure acknowledges that the alternative — confident-sounding answers 
 
 - `SKILL.md` — main skill instructions covering both modes
 - `references/` — seven condensed reference files (architecture, character cards, lorebooks, custom tools, extensions, agents, decision guide)
-- `assets/` — JSON and Markdown starter templates for character cards, custom agents, lorebook entries, and webhook tools
+- `audit/` — per-release ledger-pattern audits of the skill against the engine, with the raw per-pass slices under `audit/_ledger/<version>/`
+- `assets/` — starter templates for character cards, custom agents (with the v2.4.0 `contextSources` block), lorebook entries, webhook tools, and sandboxed Personal Extensions. `SKILL.md` routes to these when the user asks for an implementation.
 
 ## Installing & using the skill
 

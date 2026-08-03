@@ -179,6 +179,27 @@ Imports **never carry approval and cannot enable themselves.** Legacy, profile-i
 
 Third-party extension code is untrusted. Always tell users to read every line before importing or enabling.
 
+### Payload shape and approval fields
+
+From `packages/shared/src/schemas/personal-extension.schema.ts` — useful when the manifest snippets above need to be exact rather than illustrative:
+
+| Field | Notes |
+|---|---|
+| `runtime` | `"client"` (default) or `"server"` |
+| `code` / `js` | Browser JavaScript |
+| `css` | Stylesheet (full-page packages) |
+| `serverJs` | Server code — **required when `runtime === "server"`**; a server extension with an empty `serverJs` fails validation on that path |
+| `capabilities` | Declared permissions; include `[]` explicitly to stay in the safe runtime |
+| `contentHash` | The SHA-256 fingerprint approval is bound to |
+| `version`, `name`, `description`, `enabled` | Metadata and state |
+
+Approval carries **two** acknowledgement literals, which is how the two-tier disclosure is enforced rather than merely displayed:
+
+- **`acknowledgeSandboxedCode: z.literal(true)`** — required on *every* approval.
+- **`acknowledgeFullPageAccess: z.literal(true)`** — additionally required for a Full page access package.
+
+Because both are `z.literal(true)`, neither can be defaulted or skipped programmatically — the server refuses the approval outright.
+
 ### Recovery
 
 If an extension misbehaves: **Disable**. If the UI is unavailable, stop Marinara and set the relevant `installed_extensions` record's `enabled` to `"false"`. **Never set `approvedHash` by hand.**
