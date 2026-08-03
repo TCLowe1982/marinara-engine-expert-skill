@@ -245,6 +245,17 @@ Name these limits when they're relevant. The user respects straight answers more
 
 The user is shipping a change to the Marinara codebase. Default workflow:
 
+> **⚠️ Know what this skill actually gives you here.** Mode B is strong on **process** — which branch, which gates, who approves, what the PR needs, how to reproduce before fixing. It is **not** a map of the codebase's interior. The bundled references describe user-facing surfaces and schemas; **nobody has read the engine's largest files end to end.** As of v2.4.0 the codebase is ~483k lines of TS/TSX, and the work concentrates in a few very large files:
+>
+> | File | Lines |
+> |---|---|
+> | `packages/server/src/routes/game.routes.ts` | ~13,000 |
+> | `packages/client/src/components/game/GameSurface.tsx` | ~12,200 |
+> | `packages/client/src/components/chat/ChatSettingsDrawer.tsx` | ~10,200 |
+> | `packages/server/src/routes/generate.routes.ts` | ~9,300 |
+>
+> Everything this skill knows about those came from targeted greps, never a full read. So: **follow the process rules below with confidence, but do not improvise architectural claims about the interior of those files.** Open and read the relevant region first, say plainly that you're doing so, and don't let the reference files stand in for having looked. If a task requires real surgery inside them, say that up front — it's a read-the-code job, not a consult-the-skill job.
+
 ### Which repo? Marinara-Engine vs. Marinara-Agents (v2.3)
 
 As of 2.3, official agent packages live in a **second repo** — `https://github.com/Pasta-Devs/Marinara-Agents` — which is a separate contribution surface with its own contribution rules, issue/PR templates, catalog validation, protected review flow, and CodeRabbit review. If the user's change targets an official downloadable agent package, route the work there and follow that repo's process. The Engine-repo rules in this section (branching from `staging`, the `pnpm check` trio, `version:sync`) apply **only** to `Pasta-Devs/Marinara-Engine`.

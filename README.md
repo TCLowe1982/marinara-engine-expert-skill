@@ -19,6 +19,12 @@ It also enforces a mandatory pre-submission checklist before any PR is declared 
 
 The skill enforces every rule in CONTRIBUTING.md — server-side logging via Pino, link-the-issue PR bodies, in-same-PR doc updates, and version-drift checks across all 10 version-bearing files. It is synced to **Marinara Engine v2.4.0**.
 
+## Scope: user-facing, not engine-interior
+
+This skill is strongest on the **user-facing** side of Marinara — characters, lorebooks, custom tools, agents, macros, themes, Personal Extensions, and picking between them. Its contribution mode covers the *process* of shipping a change (branch, gates, approvals, PR hygiene, reproduce-before-fix) rather than the shape of the codebase.
+
+That distinction is deliberate and worth stating plainly: Marinara is ~483k lines of TS/TSX, and the logic concentrates in a handful of very large files — `game.routes.ts` (~13k lines), `GameSurface.tsx` (~12.2k), `ChatSettingsDrawer.tsx` (~10.2k), `generate.routes.ts` (~9.3k). **None of them has been read end to end for this skill.** The references were built from schemas, docs, changelogs, and targeted greps. For work that means real surgery inside those files, this skill will get you the workflow but not the map — that belongs in a separate, architecture-focused expert skill.
+
 ## Knowledge architecture
 
 The skill uses three tiers of authority:
