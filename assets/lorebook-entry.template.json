@@ -8,6 +8,8 @@
   "selective": false,
   "selectiveLogic": "and",
   "probability": null,
+  "decisionMode": "off",
+  "decisionStatement": "",
   "scanDepth": null,
   "matchWholeWords": false,
   "caseSensitive": false,
@@ -22,7 +24,7 @@
   "ephemeral": null,
   "group": "",
   "groupWeight": null,
-  "preventRecursion": false,
+  "preventRecursion": true,
   "excludeRecursion": false,
   "delayUntilRecursion": false,
   "locked": false,
@@ -36,5 +38,6 @@
   "relationships": {},
   "dynamicState": {},
   "activationConditions": [],
-  "schedule": null
+  "schedule": null,
+  "images": []
 }
