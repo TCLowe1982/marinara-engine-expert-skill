@@ -12,7 +12,9 @@
  *        - host .env:  ENABLE_EXTERNAL_EXTENSIONS=true
  *        - Settings > Advanced > Danger Zone > "Allow third-party extension imports"
  *      Put this file next to a manifest.json (below), then
- *      Settings > Addons > External Extensions > Import Folder (or import a ZIP).
+ *      Settings > Addons > External Extensions > Import Extension Folder
+ *      (or Import Extension File for a ZIP). To update later, re-import under
+ *      the same name: it is disabled until you approve the new hash.
  *      From a phone/LAN/remote browser you also need ADMIN_SECRET on the
  *      server and the same value under Settings > Advanced > Admin Access.
  *      Guide: docs/extending/writing-personal-extensions.md

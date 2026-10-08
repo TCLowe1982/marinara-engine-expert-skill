@@ -33,10 +33,22 @@
       "dialogueColor": "",
       "boxColor": "",
       "conversationStatus": "online",
+      "phoneticName": "",
       "rpgStats": {
         "enabled": false,
-        "attributes": [],
-        "hp": { "value": 0, "max": 0 }
+        "pools": [
+          { "name": "HP", "value": 100, "max": 100, "color": "#ef4444" },
+          { "name": "MP", "value": 100, "max": 100, "color": "#3b82f6" }
+        ],
+        "attributes": [
+          { "name": "STR", "value": 10 },
+          { "name": "DEX", "value": 10 },
+          { "name": "CON", "value": 10 },
+          { "name": "INT", "value": 10 },
+          { "name": "WIS", "value": 10 },
+          { "name": "CHA", "value": 10 }
+        ],
+        "hp": { "value": 100, "max": 100 }
       }
     },
     "character_book": null

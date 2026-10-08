@@ -9,12 +9,12 @@ This is the right tool for **large, structured, but stable** reference knowledge
 ## Concepts
 
 A **lorebook** is a container with:
-- A name, description, category (`world` / `character` / `npc` / `spellbook` / `uncategorized`)
-- A `tokenBudget` — maximum tokens of entries that can be injected per turn (default 2048)
-- A `scanDepth` — how many recent messages to scan for keywords (default 2)
+- A name, description, category (`world` / `character` / `npc` / `spellbook` / `uncategorized`) — no effect on activation, but the character/persona **Assign Lorebook** picker lists only `character` books (see Scope)
+- A `tokenBudget` — maximum tokens of entries that can be injected per turn (default 2048; **0 = no limit**)
+- A `scanDepth` — how many recent messages to scan for keywords (default 2; **0 = the whole chat**)
 - `recursiveScanning` — if true, activated entries' content is itself scanned for more triggers (default false)
 - `maxRecursionDepth` — cap on recursion (default 3, max 10)
-- Scope: `isGlobal`, per-character (`characterId` / `characterIds[]`), per-persona (`personaId` / `personaIds[]`), or per-chat (`chatId` / `scope` object) — see the Scope section below
+- Activation routes: `isGlobal`, per-character (`characterId` / `characterIds[]`), per-persona (`personaId` / `personaIds[]`), pinned to a chat (the chat's `activeLorebookIds`) or owned by one chat (`chatId`); the `scope` object then limits which chats a linked book may activate in — see the Scope section below
 - Also: `entryLimit` (default 100, range 1–1000), `imagePath` (the lorebook's picture), `tags`, `hiddenFromLibrary` (the embedded-lorebook visibility toggle), and provenance (`generatedBy`, `sourceAgentId`)
 - Semantic search: a whole-lorebook `excludeFromVectorization` that **defaults to `true`** — the Overview **Vectors** switch is off for new lorebooks (earlier guidance here called it "No Vector", which is the per-entry label) — plus `vectorQueryDepth`, `vectorScoreThreshold`, `vectorMaxResults`, `vectorIncludeAssistant` (see Semantic Matching below)
 
@@ -37,14 +37,14 @@ From `createLorebookEntrySchema`:
 
 | Field | Type | Default | What it does |
 |---|---|---|---|
-| `name` | string | required | Display name in the UI. Not sent to model. |
+| `name` | string (max 200) | required | Display name. Not injected with the entry text, but it heads the entry's reference-image message ("Visual references for lorebook entry …") and appears in the Knowledge Router's catalog. |
 | `content` | string | `""` | The text injected when triggered. Passed to the model verbatim as of v2.3.4 (no HTML-escaping) — see Entry length under Best Practices. |
 | `keys` | string[] | `[]` | Primary trigger keywords. Matching any triggers the entry. |
-| `secondaryKeys` | string[] | `[]` | Additional triggers, used with `selective` + `selectiveLogic`. |
+| `secondaryKeys` | string[] | `[]` | Extra test applied after a primary match, only on **Selective** entries via `selectiveLogic`. Never activates an entry on its own. |
 | `enabled` | bool | `true` | Master on/off. |
-| `constant` | bool | `false` | **If true, ALWAYS injected** (no keyword needed). Use sparingly. |
-| `selective` | bool | `false` | If true, combines primary and secondary keys via `selectiveLogic`. |
-| `selectiveLogic` | `and`, `and_all`, `or`, `not`, `not_all` | `"and"` | How primary/secondary keys combine when `selective`. `and` = primary + at least one secondary; `and_all` = primary + **all** secondary keys; `or` = either; `not`/`not_all` negate. |
+| `constant` | bool | `false` | Activates on every scan with **no keyword needed** — but still obeys enabled/folder state, timing, character/tag/trigger filters, activation conditions and schedule, probability, a **Require** decision, and the token budgets / entry limit (constants are kept first when trimming). Earlier guidance here said "ALWAYS injected". Use sparingly. |
+| `selective` | bool | `false` | Entry status **Selective** (the status select offers Normal / Constant / Selective): primary keys must match *and* the secondary-key logic must pass. |
+| `selectiveLogic` | `and`, `and_all`, `or`, `not`, `not_all` | `"and"` | Drawer **Logic** buttons, checked only after a primary key matched: `and` (**AND Any**) = at least one secondary also appears; `and_all` (**AND All**) = every secondary appears; `not` (**NOT Any**) = blocked if any secondary appears; `not_all` (**NOT All**) = blocked only if every secondary appears. `or` is a legacy/import value that behaves **exactly like `and`** (shown as AND Any) — not "primary or secondary" as earlier guidance here said. The same secondary test also gates semantic matches. |
 | `probability` | number | `null` | **Percent chance, 0–100**, that a triggered entry actually fires (UI shows a percent; `null` or 100 = always; the scanner rolls `random()*100 < probability`). Earlier guidance here said 0–1 — that makes `0.5` a 0.5% chance. |
 | `scanDepth` | number | `null` | Overrides the lorebook's scan depth for this entry. |
 | `matchWholeWords` | bool | `false` | If true, `king` won't match `kingdom`. |
@@ -54,7 +54,7 @@ From `createLorebookEntrySchema`:
 | `outletName` | string (max 200) | `""` | Outlet name matched by `{{outlet::name}}`. **Case-sensitive.** Only meaningful with `position: 7`. |
 | `depth` | number | `4` | How many messages deep to inject (for `@depth` positioning). |
 | `order` | number | `100` | Insertion order within same position/group. Lower = earlier. Agents with the `lorebook_update` result type can set it (v2.4.3, #5225). |
-| `role` | `"system" | "user" | "assistant"` | `"system"` | What role to attribute the injection to. |
+| `role` | `"system"` \| `"user"` \| `"assistant"` | `"system"` | What role to attribute the injection to. Only used for position 2 (@ Depth); ignored for before/after/Outlet. |
 | `sticky` | number | `null` | Stay active for N messages after last trigger. |
 | `cooldown` | number | `null` | Minimum messages between activations. |
 | `delay` | number | `null` | Wait N messages before first activation in a chat. |
@@ -65,7 +65,7 @@ From `createLorebookEntrySchema`:
 | `locked` | bool | `false` | Protect from agent edits (e.g., Lorebook Keeper — a downloadable Misc agent package as of v2.3, absent on fresh installs). |
 | `tag` | string | `""` | Freeform category tag. |
 | `relationships` | object | `{}` | Cross-entry references (for graph-style lore). |
-| `dynamicState` | object | `{}` | Per-chat mutable state. |
+| `dynamicState` | object | `{}` | Arbitrary JSON metadata stored on the entry and **shared by every chat** (Game's lorebook keeper tags session entries with it). Not per-chat — per-chat enable/ephemeral and timing state live in chat metadata. |
 | `activationConditions` | array | `[]` | Game-state gates: `{ field, operator, value }`. Operators are **`equals`, `not_equals`, `contains`, `not_contains`, `gt`, `lt`** (`activationConditionSchema`). |
 | `schedule` | object | `null` | Time/date/location gating for game mode. |
 | `description` | string | `""` | Short summary that only the **Knowledge Router** reads to decide relevance; never injected as content. Fill it on entries you expect the Router to route. |
@@ -73,14 +73,14 @@ From `createLorebookEntrySchema`:
 | `excludeRecursion` | bool | `false` | This entry can't be activated *by* recursion. |
 | `delayUntilRecursion` | bool | `false` | This entry only activates *during* recursion. |
 | `folderId` | string | `null` | Folder this entry belongs to (a folder can be toggled to gate all its entries). |
-| `characterFilterMode` / `characterFilterIds` | enum / string[] | `"any"` / `[]` | Restrict activation to specific characters. |
+| `characterFilterMode` / `characterFilterIds` | enum / string[] | `"any"` / `[]` | Restrict activation to specific characters. In Individual-mode group chats the scan is re-filtered per responder, so a character (or character-tag) filter keeps an entry — a secret, a private backstory — out of every other character's reply. A linked lorebook alone doesn't: it's active for everyone in a chat that includes its character. |
 | `characterTagFilterMode` / `characterTagFilters` | enum / string[] | `"any"` / `[]` | Restrict by character tags. |
 | `generationTriggerFilterMode` / `generationTriggerFilters` | enum / string[] | `"any"` / `[]` | Restrict by generation trigger (see Trigger types below). |
 | `images` | `{ path, caption }[]` (max 4) | `[]` | Reference images sent when the entry activates (v2.5.0) — see Reference images. `path` must be a server-generated `/api/lorebooks/entry-images/…` file; caption ≤ 500 chars. |
 | `decisionStatement` | string (max 500) | `""` | Statement about the recent chat for the Decision model to judge (v2.5.0) — see Decision activation. |
 | `decisionMode` | `off` \| `require` \| `trigger` | `"off"` | The drawer's **Decision** field. An unknown mode imports as `off`. |
 | `additionalMatchingSources` | string[] | `[]` | Also scan extra fields for keys — the seven valid values are `character_name`, `character_description`, `character_personality`, `character_scenario`, `character_tags`, `persona_description`, `persona_tags` (`lorebookMatchingSourceSchema`). |
-| *filter mode* | `any` \| `include` \| `exclude` | `any` | `lorebookFilterModeSchema` — governs how the matching sources filter. `include` vs `exclude` changes activation semantics substantially. |
+| *filter mode* | `any` \| `include` \| `exclude` | `any` | `lorebookFilterModeSchema` — the mode shared by the character, character-tag and generation-trigger filters (UI **Any / Only / Exclude**): Any or an empty list = no gate; Only (`include`) = at least one listed value must be active; Exclude = none may be. `additionalMatchingSources` has no mode. |
 
 ## Generation Trigger Types & Folders
 
@@ -213,9 +213,12 @@ Scope is controlled by several fields on the lorebook (`packages/shared/src/sche
 - **`isGlobal: true`** — global. Attached to all chats where enabled in prompt settings.
 - **`characterId`** (single) or **`characterIds: []`** (multiple) — character-scoped. Active only in chats including that character. (Use one field or the other, not both.)
 - **`personaId`** (single) or **`personaIds: []`** (multiple) — persona-scoped (new in v2.0). Auto-activates when that persona is in use. **(v2.4.2, #4887)** One that is explicitly added to a chat also works under a different persona; automatic owner matching and chat exclusions still apply.
-- **`chatId`** plus the **`scope`** object `{ mode: "all" | "disabled" | "specific", chatIds: [] }` — chat targeting.
+- **Pinned to a chat** — Chat Settings → Lorebooks → **Add Lorebook** pins any lorebook to that one chat (stored in the chat's `activeLorebookIds`; badge **Chat**). `chatId` on the lorebook marks one owned by a single chat.
+- **`scope`** `{ mode: "all" | "disabled" | "specific", chatIds: [] }` — not a route in, but a limit on which chats the book may activate in, checked before any route. UI: the **Scope** button in the character/persona **Lorebook** tab's **Assign** dialog — **All chats with [name]** (default) / **Disabled for all chats** (pause without unlinking) / **Specific chats** (pick at least one). Earlier guidance here called `chatId` + `scope` "chat targeting"; per-chat use is pinning.
 
 A `superRefine` enforces that a global lorebook (`isGlobal: true`) **cannot also** target specific characters or personas — pick global *or* scoped.
+
+**Linking happens in two places:** the lorebook's **Overview** tab (**Linked Characters**), or the character/persona editor's **Lorebook** tab (**New** / **Assign Lorebook**). The **Assign Lorebook** picker lists — and the assigned list shows — **only Character-category lorebooks** (persona editor too); a World/NPC book is invisible there. Set its Category to Character, link it from its Overview tab, or use **New** (creates a Character-category book). `docs/lorebooks/linking-to-characters.md`.
 
 **Per-chat switches** (Chat Settings → **Lorebooks**): **Disable in this chat** / **Enable in this chat** pause an auto-activated lorebook for one chat without unlinking it. **(v2.4.6, #5954)** The entry switches there are per-chat too — they affect only that chat and keep ephemeral counters — but text and other entry edits made there still change the shared lorebook everywhere. An entry disabled in the shared lorebook can't be enabled per chat.
 
@@ -227,17 +230,20 @@ Why it matters for advice: users who bulk-import cards (SillyTavern migrations e
 - World lore, shared universes → `isGlobal`.
 - Character's personal memories, backstory depth → character-scoped.
 - Persona-specific knowledge (about the user's role) → persona-scoped.
-- Current scene state, one-session plot flags → chat-scoped.
+- Current scene state, one-session plot flags → pin to the chat (Chat Settings → Lorebooks → **Add Lorebook**).
+- Knowledge only one character in a group should have → an entry-level character filter (see Entry Fields), not just a linked lorebook.
 
 **(v2.2)** Lorebooks can also activate inside **Noodle** timeline refreshes via an opt-in "Lorebook context" setting (off by default), reusing the group-chat multi-character lorebook system — see `references/architecture.md` → Noodle. **(v2.3)** The roster-scaling budget was replaced: world/lore context and chat carryover each get a fixed **8,192-token** budget, and linked-lorebook macros resolve before Noodle refresh prompts (#3687). **(v2.3.4)** Entries can also target Noodle refreshes *exclusively* via the `noodle` generation trigger filter — see Generation Trigger Types & Folders above.
 
 ## Token Budget Management
 
-The lorebook's `tokenBudget` caps total injected content per turn; a chat-wide **Lorebook Token Budget** (Chat Settings → Lorebooks, default 8192, 0 = unlimited) caps all active lorebooks combined, and an entry is skipped if it would overflow either. If more entries match than fit, lower-`order` entries inject first (constant entries and group weighting also factor in); entries that don't fit are skipped — the World Info Inspector surfaces which were budget-skipped (a 1.6/2.0 visibility feature). **(v2.3.4)** Current semantic (vector) matches now get the **same budget priority** as current keyword matches — configured entry order, not activation method, decides which entries fit when over budget. (Before 2.3.4, semantically activated entries were effectively second-class in the budget queue.)
+The lorebook's `tokenBudget` caps total injected content per turn (0 = no cap); a chat-wide **Lorebook Token Budget** (Chat Settings → Lorebooks, default 8192, 0 = unlimited) caps all active lorebooks combined, and an entry is skipped if it would overflow either. **Chat Settings → Active Context** shows the skips: an amber notice "N matching lore entries were skipped by token budget", each entry naming its lorebook and reason (**lorebook budget**, **chat budget**, or **lorebook and chat budgets**) with matched keys, estimated tokens and budget used; for big lorebooks it suggests the Knowledge agents instead of bigger caps. **(v2.3.4)** Current semantic (vector) matches get the **same budget priority** as current keyword matches (before 2.3.4 they were effectively second-class in the budget queue).
 
-**What happens at the budget ceiling.** When activated entries exceed `tokenBudget` the engine trims rather than failing — see "How entries get trimmed" in `docs/lorebooks/token-budgets.md`. Order and group weighting decide who survives, so `order` is not merely cosmetic: it is the priority list for what gets dropped under pressure. Tuning the budget without also setting deliberate `order` values just means the engine picks the casualties for you.
+**What happens at the budget ceiling** (`docs/lorebooks/token-budgets.md` → How entries get trimmed). The engine trims rather than failing. Group lotteries are settled first (one winner per group); the survivors are then tried in three tiers: **(1) Constant** entries, **(2)** entries whose primary keys matched the **latest user message**, plus current semantic matches, **(3)** the rest (sticky holds, matches only in older messages) — by `order` within each tier. Each entry that still fits goes in; one that would overflow is skipped and the walk continues, so a smaller entry below it can still fit. So `order` ranks entries **only inside a tier** — a low Order can't beat a Constant or a fresh latest-message match (earlier guidance here made `order` the whole priority list). Keep Constants few and set deliberate `order` values, or the engine picks the casualties for you.
 
-**Game world generation is the exception (v2.4.6).** Entries the user explicitly selects for Game world generation — including a game-surface Experience's hand-picked entries — bypass the automatic lore token/count budgets and the probability roll (disabled entries and other filters still apply); only the model's context limit bounds them, and an oversized request stops with a context-limit error before it is sent. Decision fields read as no there.
+**Current-location lore (World Maps package).** Entries attached to a map location (select the location → **Linked lore**) activate with no keyword while that **exact** location is current — links don't pass from parent to child — and still obey disabled/chat-excluded state, conditions, timing, probability and a Require decision. They first pass a separate **2,048-token current-location reserve**, then the ordinary budgets; Active Context labels them **current location** and reserve skips **current-location context cap**. A non-constant entry the reserve declined can still activate through keywords, sticky or recursion within the ordinary budget (v2.4.6, #6143); a declined Constant can't (#5943). `docs/agents/hierarchical-maps.md` → Link lore to locations.
+
+**Game world generation is the exception (v2.4.6).** Entries the user explicitly selects for Game world generation — including a game-surface Experience's hand-picked entries — bypass the automatic lore token/count budgets and the probability roll (disabled entries and other filters still apply); only the model's context limit bounds them, and an oversized request stops with a context-limit error before it is sent. Decision fields don't gate these hand-picked entries (a ticked Require entry still goes in); Game setup's automatic lorebook scan reads decision entries as no.
 
 **Practical sizing:**
 - For casual characters: 500–1000 tokens budget.
@@ -251,7 +257,7 @@ The lorebook's `tokenBudget` caps total injected content per turn; a chat-wide *
 
 If `recursiveScanning` is true, the content of activated entries is itself scanned for triggers. This enables "chained" lore — entry A triggers, mentions B, B triggers, mentions C, etc. — up to `maxRecursionDepth`.
 
-Recursion is opt-in at **two** levels: the lorebook's **Recursive** switch (off by default) *and* each chaining entry's **Recursion** toggle (`preventRecursion: false`; entries default to `true`). Recursively found entries still count against every budget and the entry limit. **(v2.4.6, #5942)** An entry the token budget skipped no longer feeds recursion, so dropped lore can't chain-trigger other entries; constants rejected by a location budget likewise stay out of later scans (#5943).
+Recursion is opt-in at **two** levels: the lorebook's **Recursive** switch (off by default) *and* each chaining entry's **Recursion** toggle (`preventRecursion: false`; entries default to `true`). Recursively found entries still count against every budget and the entry limit. **(v2.4.6, #5942)** An entry the token budget skipped no longer feeds recursion, so dropped lore can't chain-trigger other entries; constants rejected by the current-location reserve (see Token Budget Management) likewise stay out of later scans (#5943).
 
 **When to use:**
 - Complex fictional worlds where entries cross-reference each other.
@@ -273,6 +279,7 @@ Related surfaces handle "the user mentioned a concept without the exact keyword"
 - **Knowledge Retrieval** (`knowledge-retrieval` Writer Agent package, pre-generation) — reads every enabled entry of its chosen lorebooks **and uploaded knowledge-source files**, has its model extract the facts relevant to the recent messages (in chunked passes when the material exceeds its source budget), and injects that summary. Higher cost per turn than the Router. (Earlier guidance here called it embedding search over local MiniLM; the engine's retrieval step is an LLM extraction pass, not vector search.)
 - **Knowledge Router** (`knowledge-router` Writer Agent package, pre-generation) — a lower-cost alternative that shows the model a catalog of entries (ID, name, a few keys, the entry **Description**), lets it **select relevant entries by ID**, and injects them verbatim. A vectorized lorebook improves its shortlist with semantic matches; otherwise it uses keyword matches only.
 - **Knowledge Sources** (`/api/knowledge-sources`) — upload text files / PDFs that the Knowledge Retrieval agent can scan alongside lorebooks.
+- **Source selection & behavior:** **Use chat-active lorebooks** is on by default — with no fixed picks the agent follows the chat's active lorebooks; a **Fixed source override** wins in every chat that uses the agent. Neither agent re-runs on regenerate, only on new turns. Uploaded files are shared by every chat using Knowledge Retrieval (.txt .md .csv .json .xml .html .htm .log .yaml .yml .tsv .pdf); a scanned/image-only PDF has no text layer and yields a placeholder. With an empty **Description** the Router falls back to the start of the content — aim for a green **% described** coverage badge (e.g. "75% described (9/12)").
 
 Both Knowledge agents are Roleplay-only per `docs/agents/knowledge-sources.md`.
 
@@ -295,6 +302,8 @@ Two different relationships, and the visibility toggle below only makes sense on
 
 Recommend **embedded** when the lore belongs to exactly one character and the card will be shared; **linked** when several characters draw on one body of lore, or when the user wants to edit it independently.
 
+**To embed:** assign the lorebook first, then click **Embed into card** on its row (Character editor → **Lorebook** tab; characters only, not personas). A card holds **one** embedded lorebook — the button is disabled with "Remove the current embedded lorebook first" until you remove it. **Refresh** on the row re-copies the lorebook's current entries into the card.
+
 Edits made through **Edit Embedded Lorebook** sync back into the card's embedded copy, and **(v2.4.2, #4927)** so do Professor Mari's entry adds, updates, deletes and restores on an embedded lorebook.
 
 **(v2.4.0, #4333) Visibility toggle for reimported embedded lorebooks** (`hiddenFromLibrary`). A reimported embedded lorebook can be hidden from general lorebook searches and selectors while staying **linked, active, and editable**. Bulk card imports (SillyTavern migrations especially) otherwise bury hand-authored lorebooks under one embedded book per card. **Hidden is not disabled** — a hidden lorebook still fires normally. Correct that if a user hides one expecting it to stop. **(v2.4.2, #4775)** A lorebook that loses its last owning character or persona is deactivated *and* unhidden, so it reappears in the library instead of lingering invisibly.
@@ -310,13 +319,14 @@ This is a real, quiet failure mode: switch the embedding model (or chat on a con
 The entry drawer's **Decision** field lets the user's **Decision model** judge a plain statement about the recent chat (`decisionStatement`, ≤ 500 chars; `{{user}}`/`{{char}}` resolve), e.g. `In the latest message, a dragon is physically present.` `decisionMode`:
 
 - **Off** (default) — normal activation.
-- **Require** — the entry must qualify the ordinary way (keyword, semantic match, **Constant**, or an attached map location, after filters, timing and the probability roll) **and** the statement must be true. Filters passing mentions; on a Constant entry it makes always-on lore situational (combat rules gated on `A fight is happening in the latest message`).
+- **Require** — the entry must qualify the ordinary way (keyword, semantic match, **Constant**, or an attached World Maps location — see Token Budget Management → Current-location lore — after filters, timing and the probability roll) **and** the statement must be true. Filters passing mentions; on a Constant entry it makes always-on lore situational (combat rules gated on `A fight is happening in the latest message`).
 - **Trigger** — a yes is an extra route in: the entry activates even with none of its keywords present (paraphrases, situations). Ordinary routes still work.
 
 What bites:
 
 - **No answer reads as no.** With no Decision model set (the editor warns), or no answer, Require can't admit a new entry (an existing Sticky hold can keep one) and Trigger adds nothing. Use Require to filter optional lore — **never to gate anything the story or a safety rule depends on** — and give important Trigger entries real keys too.
 - On a hosted Decision connection each statement is a paid request (batched where possible, answers reused within the turn), drawn from the per-turn **Decision statements per turn** allowance; statements past it read as no. Sticky and Cooldown skip re-asking.
+- **Trigger is asked nearly every turn.** A Trigger statement is asked whenever the entry passes its gates but its keywords miss (drawer: "Asked every turn while this lorebook is active"), so each Trigger entry spends allowance — and, hosted, money — on most turns. Require is asked only when the entry would activate anyway. Trigger does nothing on a **Constant** entry (it takes the constant path).
 - Chat turns only: Game setup, Experience generation and agents' own lorebook scans read decision entries as no. **Peek Prompt** never asks. The active-lorebook list labels Trigger activations **decision**.
 - A `{{#if decision:"…"}}` block *inside* `content` is different — it trims text in an entry that already activated (the entry still spends budget and starts its timers).
 
@@ -338,6 +348,8 @@ Entries can require game-state conditions to fire:
 ```
 Both conditions must match (AND logic) for the entry to fire. Useful for Game Mode where the World State agent tracks live game state.
 
+**No game state = no gate.** When the scan has no game state — Conversation and preset-less Roleplay always scan without one, as does any chat with no tracked state yet — conditions and schedule are skipped and the entry fires on its keys alone. They gate in Game, not in ordinary chats. Comparisons ignore case; `gt`/`lt` need numbers on both sides or fail; a field missing from a present state compares as `""`.
+
 ## Schedule (Time/Date/Location)
 
 For time-based gating:
@@ -350,6 +362,7 @@ For time-based gating:
   }
 }
 ```
+Each list is checked only when that state field (time / date / location) is set, as a case-insensitive substring match (`"night"` matches `"late night"`); with no game state the schedule is skipped, as above.
 
 ## AI-assisted lorebook creation (Professor Mari)
 
@@ -370,7 +383,7 @@ The engine's long-form authoring guide — strategy per entry type, a worked mul
 - For common words, turn on `matchWholeWords` to avoid false positives.
 - For proper nouns with unusual capitalization, consider `caseSensitive`.
 - **(v2.3)** Use real character/persona names as keys, not macro literals like `{{user}}` — macros are resolved before keyword routing and embedding scans (#3704), so matching only ever sees the resolved names.
-- An invalid or potentially very slow regex key silently falls back to a plain-text match; **Check lorebook** (v2.5.0) flags these, along with common/short keys and keyless non-constant entries.
+- An invalid or ReDoS-shaped regex key silently falls back to a plain-text match; a pattern that compiles but runs over **~50 ms** on the chat text simply **doesn't match** that scan (no fallback; a server warning names it). Keep regex keys simple. **Check lorebook** (v2.5.0) flags invalid/unsafe regex, along with common/short keys and keyless non-constant entries.
 
 ### Entry length
 - 1–3 short paragraphs is ideal. Entries over ~300 words tend to dominate context.
@@ -381,7 +394,7 @@ The engine's long-form authoring guide — strategy per entry type, a worked mul
 
 ### Agent-written lore (Lorebook Keeper, `lorebook_update` agents)
 - **Routing:** Keeper can write to exact writable lorebook names or configured aliases and auto-create missing category books (v2.4.4); an explicitly selected target wins through automatic runs, retries and approval (v2.4.6, #5907). It replaces an entry's body rather than stacking duplicates (v2.4.2, #4775). `locked: true` keeps it off an entry.
-- **Provenance (v2.5.0):** Keeper entries remember their source messages (`sourceMessageRefs`). Deleting a message (single or bulk) removes entries whose whole source turn is gone and undoes in-place rewrites that turn made; hand-written entries are never touched. Regenerating drops lore written from the discarded swipe, and swiping back restores it. Leftovers can be found by filtering a lorebook's entries by source message.
+- **Provenance (v2.5.0):** entries written by Lorebook Keeper and other `lorebook_update` agents remember their source messages (`sourceMessageRefs`). Deleting a message (single or bulk) removes entries whose whole source turn is gone and undoes in-place rewrites that turn made; hand-written entries are never touched. Regenerating drops lore written from the discarded swipe, and swiping back restores it. With **Recover deleted chat messages** on (Settings → Advanced → Features), restoring a trashed message brings back the lore changes an agent made with it (#7146). Leftovers can be found by filtering a lorebook's entries by source message.
 
 ### When NOT to use lorebooks
 - **Small stable knowledge** — just put it in the character card.
@@ -396,26 +409,30 @@ The engine's long-form authoring guide — strategy per entry type, a worked mul
 
 ## Migration from SillyTavern
 
-Marinara imports SillyTavern lorebooks/world-info directly via Settings → Import. **Bulk paths exist and are usually what a migrating user wants** (`docs/lorebooks/import-export.md`): *Import many lorebooks at once*, *Export many lorebooks at once*, and **importing a whole SillyTavern folder** in one action. Since the skill recommends migrating over rebuilding, lead with the bulk path rather than the single-file one. **(v2.5.0, #6698)** Entries can also be imported from and exported to **Markdown** (one `## Name` heading per entry, optional `Keys: a, b` line, then the text) or **CSV** (`name`, `keys`, `content`, plus optional `folder`, `enabled`, `constant`, `probability` 0–100 columns) — into the current lorebook or a new one, with skip / overwrite / rename for duplicate names — handy for notes or spreadsheet-kept lore; a failed import changes nothing. The schemas are mostly compatible; Marinara extends them with fields like `ephemeral`, `group`/`groupWeight`, `activationConditions`, `schedule`, and richer recursion controls.
+Marinara imports SillyTavern lorebooks/world-info directly via Settings → Import. **Bulk paths exist and are usually what a migrating user wants** (`docs/lorebooks/import-export.md`): *Import many lorebooks at once*, *Export many lorebooks at once*, and **importing a whole SillyTavern folder** in one action. Since the skill recommends migrating over rebuilding, lead with the bulk path rather than the single-file one. **(v2.5.0, #6698)** Entries can also be imported from and exported to **Markdown** (one `## Name` heading per entry, optional `Keys: a, b` line, then the text) or **CSV** (`name`, `keys`, `content`, plus optional `folder`, `enabled`, `constant`, `probability` 0–100 columns) — into the current lorebook or a new one, with skip / overwrite / rename for duplicate names — handy for notes or spreadsheet-kept lore; one import takes up to about **1M characters / 20,000 entries** (split bigger spreadsheets), and a failed import changes nothing. The schemas are mostly compatible; Marinara extends them with fields like `ephemeral`, `group`/`groupWeight`, `activationConditions`, `schedule`, and richer recursion controls.
+
+**Exporting:** **Export Lorebook** offers **Marinara Native** (`.marinara.json`, lossless — folders and every field; use for Marinara-to-Marinara) or **Compatible JSON** (folderless World Info for SillyTavern and other tools — drops folders, character/tag/trigger filters, `additionalMatchingSources`, activation conditions, schedule, `tag`, relationships and the lorebook-level settings; Decision fields and images ride along as extensions other tools ignore). Bulk export is always Native (`marinara-lorebooks.zip`). **After any import, re-vectorize** before semantic matching works (keyword triggers work at once).
 
 ## API Endpoints
 
 - `GET /api/lorebooks` — list
-- `GET /api/lorebooks/:id` — one lorebook (with entries)
+- `GET /api/lorebooks/:id` — one lorebook (settings plus linked character/persona ids; **no entries** — earlier guidance here said "with entries")
+- `GET /api/lorebooks/:id/entries` — list entries (`?sourceMessageId=` filter); `GET /api/lorebooks/:id/entries/:entryId` — one entry
 - `POST /api/lorebooks` — create
 - `PATCH /api/lorebooks/:id` — update
 - `DELETE /api/lorebooks/:id` — delete
 - `POST /api/lorebooks/:id/entries` — create entry
 - `PATCH /api/lorebooks/:id/entries/:entryId` — update entry
 - `DELETE /api/lorebooks/:id/entries/:entryId` — delete entry
-- `GET /api/lorebooks/:id/export` — export JSON
+- `GET /api/lorebooks/:id/export` — export; `?format=native` (default, `marinara_lorebook` envelope) or `?format=compatible` (folderless World Info JSON). `POST /api/lorebooks/export-bulk` — Native ZIP.
+- Also under `/api/lorebooks/:id/`: `entries/bulk` (POST bulk create; PATCH batch settings, ≤5,000 ids), `entries/bulk-edit`, `entries/bulk-delete`, `entries/transfer`, `entries/reorder`, `folders` (CRUD, `clone`, `reorder`), `entries/:entryId/images`, `vectorize` / `vectors` (DELETE), `activation-stats`. Plus `POST /api/lorebooks/bulk-enabled` and `GET /api/lorebooks/scan/:chatId`.
 - *(AI-assisted lorebook generation moved to `POST /api/professor-mari/workspace` in v2.0; the old `/api/lorebook-maker/generate` route was removed.)*
 
 ## UI Location
 
 - **Lorebooks panel** (right sidebar) — create, edit, attach to characters/chats. **(v2.5.0, #7154)** Its **All** tab is one list in the selected sort order, without category sections (`docs/lorebooks/overview.md` still describes grouping).
 - **Add to lorebook (v2.5.0, #6899)** — select a word or short phrase in a chat message (desktop or mobile), pick a lorebook, and it opens on a new entry named after the selection with the selection as its key.
-- **World Info Inspector** — live view of which entries are active in the current chat, with token usage and keyword reasons. **(v2.3.4)** Roleplay's **Active Context** now shows the same lorebook diagnostics as Conversation and Game (#3840): activation sources, matched keys, semantic scores, current-location grouping, budget skips, and expandable entry content.
+- **Active Context** (Chat Settings → **Active Context**) — live result of the most recent lorebook scan: activation sources (incl. **decision** and **current location**), matched keys, semantic scores, current-location grouping, budget skips with their reason, and expandable entry content. **(v2.3.4)** Roleplay shows the same lorebook diagnostics as Conversation and Game (#3840). (Earlier guidance here called this the "World Info Inspector"; no surface has that name.)
 
 ### Editor conveniences (v2.5.0 back to 2.1.1)
 
@@ -429,5 +446,5 @@ Marinara imports SillyTavern lorebooks/world-info directly via Settings → Impo
 - **Undo/redo & Tab indent (v2.3)** — native undo/redo works again in the Content and Description fields, and Tab / Shift+Tab indents/unindents every selected line without replacing the selection (2.3.2).
 - **Lorebook Keeper cadence (v2.4.0, #4360)** — the Lorebook Keeper agent's Run Interval now counts **both user and assistant messages**, so an existing interval fires roughly twice as often as before. If auto-written entries suddenly multiply after upgrading, that's why; roughly double the interval to restore the old cadence. See `agents.md`.
 - **Markdown preview (v2.4.0, #4306)** — lorebook text fields have Markdown preview toggles, like Character and Persona fields.
-- **Lorebook Prompt Position (v2.3)** — the shared lorebook editor shell has a lorebook-level **Prompt Position** selector governing where the lorebook's content is placed in the prompt, distinct from the per-entry `position` field.
+- **No lorebook-level position** — placement is per entry (**Position**: Before Character Definitions / After Character Definitions / @ Depth / Outlet); in preset chats the preset's lorebook marker section ("This is where active lorebook entries are inserted") sets where active entries go. (Earlier guidance here described a lorebook-level **Prompt Position** selector, read from a 2.3.3 styling fix, #3733; no such lorebook setting exists.)
 - **Character Lorebook tab** — **Edit Linked Lorebook** was renamed **Edit Embedded Lorebook** (2.1.1). A **Remove from card** action unlinks/clears an embedded lorebook — it works even for cards with no separate linked copy. (Row delete only unlinks the standalone; the embedded copy stays until you Remove from card.) **(v2.3)** File-native storage enforces primary/natural-key constraints, preventing ambiguous duplicate lorebook links. **(v2.3.4)** Embedded-lorebook data survives partial Character PATCHes (deep-merge, #3858), and unknown embedded-lorebook properties survive card validation (#3859) — imported cards with nonstandard fields no longer lose them.

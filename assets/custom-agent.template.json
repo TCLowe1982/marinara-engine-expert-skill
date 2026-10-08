@@ -9,7 +9,7 @@
   "imagePath": null,
   "promptTemplate": "You are [role]. Your job is to [specific task].\n\nYou will receive:\n- Recent chat history (depth = contextSize below)\n- Any context sources you enabled in settings.contextSources\n\nOutput format:\nReturn ONLY a JSON object matching this schema:\n{\n  \"field1\": \"string|null\",\n  \"field2\": \"string|null\"\n}\n\nRules:\n1. Be concise.\n2. Only change things the current message actually changes; preserve continuity otherwise.\n3. Use null for fields you genuinely can't determine.\n\nMost recent user message:\n{{input}}",
   "settings": {
-    "_comment_contextSources": "v2.4.0 (#4305): a custom agent receives ONLY what it asks for. chatHistory is the sole default; every other source is false unless set here. An agent that needs the character card or lore MUST enable them explicitly. In Roleplay, chatSummary also needs the chat's 'Attach chat summaries' switch (Chat Settings -> Agents, off by default since v2.4.6). previousOutput (v2.4.6) lets the agent read its own last output / private agent-context, and forces it into its own request.",
+    "_comment_contextSources": "v2.4.0 (#4305): a custom agent receives ONLY what it asks for. chatHistory is the sole default; every other source is false unless set here. An agent that needs the character card or lore MUST enable them explicitly. In Roleplay, chatSummary also needs the chat's 'Attach chat summaries' switch (Chat Settings -> Agents, off by default since v2.4.6). previousOutput (v2.4.6) lets the agent read its own last output / private agent-context, and forces it into its own request. recalledMemories carries built-in Memory Recall fragments (NOT the Long-Term Memory package vault) and only works with the Vectors/embeddings capability too: add \"customCapabilities\": { \"access_vectors\": true }, which also forces its own request.",
     "contextSources": {
       "chatHistory": true,
       "characters": false,
@@ -21,10 +21,10 @@
       "recalledMemories": false,
       "previousOutput": false
     },
-    "_comment_budget": "contextSize = how many recent messages the agent reads (default 5). maxTokens = output room reserved (default 4096, range 128-32768). Setting chatHistory false forces contextSize to 0.",
+    "_comment_budget": "contextSize (Context Size) = how many recent messages the agent reads (default 5, max 200; above 200 clamps to 200, blank or <1 falls back to 5). maxTokens (Max Output Tokens) = output room reserved (default 4096, min 128; the connection's max-tokens override and the model's max output cap it). Setting chatHistory false forces contextSize to 0.",
     "contextSize": 5,
     "maxTokens": 4096,
-    "_comment_activation": "Optional cost control: with activationKeywords set, the agent runs ONLY when a keyword appears within activationScanDepth recent messages (default 5, max 200; post-processing agents also scan the completed reply). Omit or leave empty to run every turn on the normal cadence (runInterval / Trigger Cadence).",
+    "_comment_activation": "Optional cost control: with activationKeywords set, the agent runs ONLY when a keyword appears within activationScanDepth recent messages (default 5, max 200; post-processing agents also scan the completed reply). Keywords match case-insensitively as substrings (not whole words), so prefer distinctive proper nouns. Omit or leave empty to run every turn on the normal cadence (runInterval / Run Interval in the editor).",
     "activationKeywords": [],
     "activationScanDepth": 5,
     "_comment_activationQuestion": "v2.5.0 (#6530), optional, needs a Decision model selected in Connections: add \"activationQuestion\" (a plain statement about the latest message, max 500 chars, e.g. \"The latest message moves the scene to a new place\"), optionally \"activationThreshold\" (0.05-0.95; leave it out to use the selected model's recommended value) and \"activationMaxSkip\" (1-100 messages before the question is bypassed). Keywords and cadence are checked first; with no Decision model or no answer the agent runs anyway. See references/conditional-prompts.md.",

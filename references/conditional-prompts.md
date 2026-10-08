@@ -26,7 +26,8 @@ The first true branch wins. If no branch matches and there's no `{{else}}`, the 
 - **↺** The skill used to list only `||`, `&&`, parentheses and the shorthand. The negated operators were always supported, and since **v2.4.4 (#5383)** the in-field Macro reference and `/macro` help show them.
 - **There is no negation prefix** (`!x`, `not x`) and no `{{#unless}}`. A condition written that way is read as plain text, not inverted (`parseConditionExpression`). To negate, use `!=`, `is not` or `not contains`, or put the text in `{{else}}`.
 - **What you can test:**
-  - Identity and field keywords: `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `backstory`, `input`, `model`, …
+  - Identity and field keywords: `char`, `user`, `characters`, `group`, `persona`, `description`, `personality`, `scenario`, `backstory`, `input`, `model`, …
+    - `characters` lists every chat character; `group` lists the **others**, excluding whoever is responding — so `group contains "Alice"` is false on Alice's own turn. Test presence with `characters contains "Alice"`.
   - Quoted literals, and preset variable names.
   - `var:name` / `var.name`, which reads preset variables first, then the chat's `{{setvar}}` variables.
   - Any *read* macro written bare (`lastGenerationType`, `agent::TYPE`, `date`, …). Write macros never run as operands.
@@ -38,7 +39,7 @@ The first true branch wins. If no branch matches and there's no `{{else}}`, the 
 
 **What it is.** A helper that never writes into the chat. It's given a **statement** and the recent messages. It returns how likely the statement is to be true (0–1), and Marinara compares that with a threshold to get yes or no. It can also pick one option from a short list, or "none of these". **Jev** is TypeSafe's hosted model (direct or through OpenRouter). **Open-Jev** is a separately published Qwen-based model that Marinara can run locally. Write shared content for "a Decision model", never "requires Jev". The UI now says **Decision model** everywhere it used to say "Jev" (#6983).
 
-**Choosing one:** **Connections → Connection defaults → Decision model**.
+**Choosing one:** **Connections → Defaults → Decision model** (the panel's connection-defaults section; its header reads **Defaults** — `docs/connections/decision-models.md` still says "Connection defaults").
 - The default is **None (decisions off)**. Switching back to None turns decisions off without deleting any questions or statements.
 - The list has two groups: **Local models** (Primary local model, Utility local model, and the Decision sidecar if installed) and **Connections** (your Decision connections).
 - Entries that can't answer right now stay in the list, greyed out with the reason. Picking an unusable model leaves your previous choice in place.
@@ -57,6 +58,7 @@ A server elsewhere on your LAN needs `PROVIDER_LOCAL_URLS_ENABLED` (on by defaul
 - **Defaults:** **0.5** for local chat models, OpenAI-compatible connections and TypeSafe / OpenRouter / Custom System One. The managed sidecar uses its manifest's value (**0.1** for the built-in Open-Jev 2B/9B).
 - **Self-hosted Open-Jev trap:** behind Custom System One it still gets 0.5, so true positives can read as no.
 - **Only an agent's threshold can be changed.** **Run when probability is at least** (0.05–0.95) is the only override. Prompt statements and lorebook fields always use the backend default.
+- **Agent thresholds don't follow a model switch.** The editor seeds a new activation question's threshold from the selected Decision model's recommended value (above), but a saved value stays put. After switching models (e.g. a local chat model → the sidecar, 0.5 → 0.1) re-check each agent: a stale threshold can make it silently skip every relevant turn. The editor offers **Use {value}, roughly where the selected decision model answers yes** whenever the saved value differs. An unset threshold (e.g. from the API) takes the backend default at run time.
 - **Prompt conditions never see the raw score**, only yes/no or the chosen option. So `decision:"…" > 0.7` doesn't work.
 
 **Time limits** apply per statement, never per group (#6721). A late answer counts as no answer.
@@ -111,7 +113,7 @@ Hosted answers sometimes take longer than 1.5 s, which makes decisions look "ran
   - The options are every value the statement is compared with anywhere in the prompt, plus "none of these". The shorthand `== "rain" || "snow"` works.
   - Only `==` / `=` / `is` / `!=` / `is not` name an option.
   - Write the statement as a subject and the options as short answers.
-  - Servers that need a description for every option (Strands decider) refused choices before v2.5.0 (#6981).
+  - Servers that need a description for every option (e.g. Strands decider) are sent one, so `decision_choice:` works with them (#6981).
 - **Answer reuse:** answered once per turn.
   - Regenerations and swipes reuse the server's in-memory answer cache (200 turn keys). A restart, an edited latest message, or a changed model, statement or option set means the question is asked again. Failed answers aren't cached.
   - Pre-generation and parallel agents share the main prompt's answers. Post-processing agents ask again, once per reply, against the finished reply.
@@ -171,7 +173,7 @@ How the modifiers behave:
   - Game setup, experience generation and agents' own lorebook scans read these entries as no. The active-lorebook list shows **decision** for an entry a Trigger activated.
   - → `lorebooks.md`.
 - **Custom-agent Activation question** (#6530).
-  - Settings: `activationQuestion` (≤500 characters, macros allowed), `activationThreshold` (0.05–0.95), and `activationMaxSkip` (1–100). In the UI the last one is **Bypass the question after this many messages without a successful run**; set it for any agent that matters.
+  - Settings: `activationQuestion` (≤500 characters, macros allowed), `activationThreshold` (0.05–0.95; seeded from the selected model and not retuned when you switch — see Thresholds), and `activationMaxSkip` (1–100). In the UI the last one is **Bypass the question after this many messages without a successful run**; set it for any agent that matters.
   - Keywords and cadence are checked first, so a skipped agent costs no request.
   - The fields stay disabled while Decision model is None.
   - → `agents.md`.

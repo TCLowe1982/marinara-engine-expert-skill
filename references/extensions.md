@@ -1,6 +1,6 @@
 # Themes and Personal Extensions
 
-> **⚠️ If you remember "extensions were removed from Marinara," that is stale.** They *were* removed in v2.3.4 — and **reintroduced in v2.3.5 as sandboxed Personal Extensions**, then expanded in v2.4.0 (Browser Extension API v5, UI contribution slots, Full page access compatibility mode) and through v2.5.0 (a documented hand-authoring path, button surfaces, `estimateTextTokens`). The removal is history. Answer from this file, not from memory.
+> **⚠️ If you remember "extensions were removed from Marinara," that is stale.** They *were* removed in v2.3.4 — and **reintroduced in v2.3.5 as sandboxed Personal Extensions** (with UI contribution slots), then expanded in v2.4.0 (Browser Extension API v5, Full page access compatibility mode) and through v2.5.0 (a documented hand-authoring path, button surfaces, `estimateTextTokens`). The removal is history. Answer from this file, not from memory.
 >
 > The 2.3.4 data loss is still real for anyone upgrading across it: extension code and `marinara.storage` bags from the pre-2.3.4 era were permanently erased on first 2.3.4 startup and are **not** restored by 2.3.5. Recovery requires a pre-2.3.4 database backup or an old zip export. The new system starts empty.
 
@@ -10,7 +10,7 @@ Marinara has two distinct user-side customization surfaces under **Settings > Ad
 
 ## Part 1: Themes (styling)
 
-For look-and-feel only. Themes are server-synced custom CSS installed under **Settings > Addons**, alongside the native **Settings > Appearance** controls (accent/chroma, dialogue colors, text scale, chat backgrounds).
+For look-and-feel only. Themes are server-synced custom CSS kept in the **Theme Library** (**Settings > Addons**), alongside the native **Settings > Appearance** controls (accent/chroma, dialogue colors, text scale, chat backgrounds). Only one theme is active at a time.
 
 Reach for a theme when the ask is purely visual. Reach for native settings first when the ask is covered there:
 
@@ -18,9 +18,22 @@ Reach for a theme when the ask is purely visual. Reach for native settings first
 - **Chat widget style (v2.5.0, #7034/#7081/#7092)** — at the bottom of **Settings → Appearance → App Style**: **Default**, **Dottore** (icy blue, cut corners) or **Mari** (gold-trimmed storybook) frames for the movable chat buttons, windows and sections, in light or dark mode. **Font**, **Shape**, **Border & Buttons Color**, **Background Color** and **Text Color** (solid or gradient) override the preset; picking a preset resets them. **Button size (px)** (32–96) resizes movable chat buttons independently of Display Size. **Apply preset font / shape / colors** (off by default, independent) carry the look to messages, input boxes, chat controls and popups, and Game HUD widgets, map panel and character sheets; Conversation messages keep their own shape.
 - **Color Character Names in Text** (**Text Rules**, v2.4.4, #5321) — colors character names and aliases inline with each character's name color (gradients supported; sub-toggle **Force Solid Colors for Inline Names**); names inside dialogue quotes are skipped and only characters in the chat qualify. The native answer to "color names with regex/CSS".
 - **Reduce Ambient Animations & Effects** (v2.4.2, #4631) — one switch that cuts ambient animation and costly backdrop blur, and follows the OS reduced-motion preference.
-- **Conversation background image opacity** (v2.5.0) — dims the Conversation background; its readability gradient stays.
+- **Conversation background image opacity** (v2.5.0) — dims the Conversation background; its readability gradient stays. (`docs/appearance/chat-backgrounds.md` still says Conversation shows only a gradient — the code wins.)
+- **Visual Style** (**App Style**) — **Default (Marinara)** or **SillyTavern**, a clean minimal ST-like skin for the whole app. The native answer to "make it look like SillyTavern" — no theme needed (it's only a skin, unrelated to ST import).
+- **Text Outline / Stroke** (color + width 0–5px) and **Chat Chrome Text Color** (tracker widgets, folder labels, settings descriptions), in **Text & Scale** — readability over busy backgrounds without CSS.
+- **Chat position** (**Appearance → Roleplay Presentation**; v2.5.0, #7106) — **Left** / **Center** (default) / **Right** for Roleplay on wide screens; messages and input move together and stay clear of sidebars and a same-side Tracker Panel. No effect on phones or in Game. The native answer to "move the chat column with CSS".
+- **Custom Mouse Pointer** (default on) — Marinara's accent cursor; turning it off is what lets a theme control the cursor, so do that before writing a theme cursor.
 
-**Theme hooks for chat windows (v2.5.0):** custom CSS can restyle the movable windows, drawers and minimized-window bubbles through public classes (`.mari-window`, `.mari-window__header`, `.mari-window__body`, `.mari-drawer`, `.mari-drawer__body`, `.mari-window-bubble`, …), data attributes (`data-window`, `data-locked`, `data-presentation="sheet"` on phones) and variables (`--mari-window-bg`, `--mari-window-border`, `--mari-window-radius`, …). Theme rules win without `!important`, and these variables override the widget-style preset colors (choose **Default** first to drop preset decoration). Full reference: `docs/appearance/custom-css-themes.md` → "Styling chat windows and drawers". Professor Mari knows these hooks and can write a widget theme.
+**Theme hooks for chat windows (v2.5.0):** custom CSS can restyle the movable windows, drawers and minimized-window bubbles through public classes (`.mari-window`, `.mari-window__header`, `.mari-window__body`, `.mari-drawer`, `.mari-drawer__body`, `.mari-window-bubble`, …), data attributes (`data-window`, `data-locked`, `data-presentation="sheet"` on phones) and variables (`--mari-window-bg`, `--mari-window-border`, `--mari-window-radius`, `--mari-window-font-family`, `--mari-drawer-radius`, …; `--mari-window-ornament: none` hides the preset title ornament). Theme rules win without `!important`, and these variables override the widget-style preset colors (choose **Default** first to drop preset decoration). **Messages, inputs and chat controls** have their own hooks: classes `.mari-chat-style-surface`, `.mari-chat-style-conversation`, `.mari-chat-style-text`, `.mari-chat-style-control` and variables `--mari-chat-font-family`, `--mari-chat-bg`, `--mari-chat-text`, `--mari-chat-border`, `--mari-chat-radius`, `--mari-chat-control-*`, `--mari-chat-input-bg`. **The `--mari-chat-*` variables do nothing unless the matching Apply preset font / shape / colors switch is on** — or target the classes directly. Full reference: `docs/appearance/custom-css-themes.md` → "Styling chat windows and drawers" / "Styling messages, input boxes and chat controls". Professor Mari knows these hooks and can write a widget theme.
+
+**What bites in theme CSS** (`docs/appearance/custom-css-themes.md`):
+
+- **Sanitized before it runs.** Every `url()` except `data:` image/font URIs becomes `url(about:invalid)`; `@import` and `@namespace` are stripped; an `@font-face` survives only if every source is a font `data:` URI (no `local()`). So remote images, `@import` of Google Fonts and linked font files silently do nothing — embed as `data:` URIs, or add the font natively (**Text & Scale → Font**; Google Fonts download, `docs/appearance/fonts.md`).
+- **Limits:** name ≤200 chars, CSS ≤**256 KiB measured in UTF-8 bytes**; larger is rejected on save or import.
+- **Theme Library:** **Create Theme** saves *and activates*; **Import File** takes a `.css` (one theme, named after the file) or `.json` (a Marinara export, or `{ "name": "…", "css": "…" }`) — imports do **not** auto-activate, and a same-name, same-CSS import is skipped. **Default Theme** turns custom theming off, and **Reset Appearance** also deactivates the active theme.
+- **Remote management:** creating, editing, importing, activating and removing themes from another device needs `ADMIN_SECRET` on the server + the same value under **Settings → Advanced → Admin Access** (loopback works without it).
+
+**Theme vs. Card CSS — two independent CSS layers, both can be on at once.** A theme repaints the whole app (server-synced, may override core tokens, use `!important` and `position: fixed`). **Card CSS** ships inside a character's (or persona's) **Creator Notes** as a `<style>` block, styles **only the chat** (scope rules with `[data-card-css]`; target a mode with `@chat-mode roleplay|conversation|game`), and must be switched on per chat under **Chat Settings → Card Theming** (**Disabled** by default / **Exclusive** / **Chat**; the control appears only when a character in the chat has CSS). Its sanitizer is stricter: core tokens like `--primary`/`--background` stripped, `!important` stripped, `position: fixed` → `absolute`, `:has()` blocked, external `url()`/`@import` stripped. Route "my character should have its own look" to Card CSS (`character-cards.md`, `docs/appearance/card-css-theming.md`); when the app looks wrong, check both.
 
 Themes cannot add behavior, read data, or run JavaScript. That's what extensions are for. A profile import brings the active theme back inactive, for deliberate re-enabling (v2.4.2).
 
@@ -41,7 +54,9 @@ There is **no "New Draft" button and no import control** in the Personal Extensi
 
 Every draft or import starts **disabled**. Marinara fingerprints the exact executable code with **SHA-256**. The user opens the draft, reads the code, compares the displayed hash, and clicks **Review and Run** only if they accept that exact version. **Any executable edit, restored revision, or permission change disables the extension and requires fresh approval.** Exported and restored packages also come back disabled; re-importing a byte-identical package keeps its approval, while changed executable content clears it.
 
-When advising: the default workflow is *ask Mari → read the code → approve the hash → enable*. For self-written code: *open both external gates → write a manifest + JS → **Import Folder** (or ZIP) under **External Extensions** → read → approve the hash*. Never tell a user to paste code into a New Draft box; there isn't one.
+**Updating = re-importing under the same name.** Marinara asks to replace the saved code ("…The extension will be disabled and require approval of its new hash"), and a lower numeric dotted `config.version` triggers an **Import Older Revision?** downgrade warning. There is **no URL installer, remote catalog or auto-updater** — every update of a distributed extension is a manual re-import plus fresh hash approval by each recipient. Deleting removes the record and its private settings, so export first.
+
+When advising: the default workflow is *ask Mari → read the code → approve the hash → enable*. For self-written code: *open both external gates → write a manifest + JS → **Import Extension Folder** (or **Import Extension File** for a ZIP/JSON/JS) under **External Extensions** → read → approve the hash*. Never tell a user to paste code into a New Draft box; there isn't one.
 
 ### Writing one by hand (manifest)
 
@@ -98,7 +113,7 @@ There is **no DOM helper, no `apiFetch`, no parent event access, and no arbitrar
 
 **Button surfaces (by v2.5.0):** a `button` may add `surface` — default `"top-bar"`, or `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents`, `settings` — and, off the top bar, `position`: `"header"` (default), `"before-content"` or `"after-content"`. Only buttons accept these; a top-bar button with a `position` is rejected. `icon` is any kebab-case Lucide name (≤64 chars; unknown names fall back to the puzzle icon) — earlier versions allowed a fixed list of 15. `update(patch)` is kind-specific: button → label/description/icon/surface/position; menu-item → label/description/icon; panel → those plus `elements`.
 
-Panel/window elements come from a **fixed vocabulary only**: `heading`, `text`, `pre`, `button`, `input`, `select`, `toggle`, `slider`, `color`, `spacer`. Interactive controls need unique IDs (letters, numbers, `.`, `_`, `-`). `heading`/`text`/`pre` need **non-empty** `text` — one invalid element makes the host reject the whole contribution. Caps: 24 contributions per extension, 60 panel elements, 80-char labels, 8,000 chars per text, 32,000 chars of panel text, 100 select options.
+Panel/window elements come from a **fixed vocabulary only**: `heading`, `text`, `pre`, `button`, `input`, `select`, `toggle`, `slider`, `color`, `spacer`. Interactive controls need unique IDs (letters, numbers, `.`, `_`, `-`). `heading`/`text`/`pre` need **non-empty** `text` — one invalid element makes the host reject the whole contribution. Caps: 24 contributions per extension, 60 panel elements, 80-char labels, 8,000 chars per text, 32,000 chars of panel text, 100 select options (each option's value and label ≤80), ids and icon names ≤64, descriptions and input placeholders ≤240; `showWindow` allows at most **4** open windows. The client drops the *whole* contribution on any breach.
 
 A panel button posts `{ contributionId, elementId, values }` to `onEvent`, where `values` holds the current string value of every control (toggles arrive as `"true"`/`"false"`). `onActivate` fires when the user opens or invokes the contribution.
 
@@ -159,7 +174,7 @@ Record *fields* require declared capabilities in the manifest:
 
 Without the permission the value stays `[]` or `null`. Requested permissions appear in **Requested access** and again in the exact-hash approval dialog. **Adding or removing a permission changes the hash, disables the extension, and requires fresh approval.**
 
-Character snapshots are bounded to: `id`, `name`, `description`, `personality`, `scenario`, `firstMessage`, `exampleDialogue`, `creator`, `characterVersion`, `tags`, `backstory`, `appearance`, `aboutMe`, `conversationDisplayName`. Persona snapshots: `id`, `name`, `description`, `personality`, `scenario`, `backstory`, `appearance`, `tags`, `aboutMe`, `conversationDisplayName`.
+Character snapshots are bounded to: `id`, `name`, `description`, `personality`, `scenario`, `firstMessage`, `exampleDialogue`, `creator`, `characterVersion`, `tags`, `backstory`, `appearance`, `aboutMe`, `conversationDisplayName`. Persona snapshots: `id`, `source` (optional: `"persona"`, or `"character"` when a character card is being used as the persona), `name`, `description`, `personality`, `scenario`, `backstory`, `appearance`, `tags`, `aboutMe`, `conversationDisplayName`.
 
 **Never delivered, under any permission:** messages, creator notes, system prompts, post-history instructions, comments, avatar paths, full character/persona libraries, undeclared fields, chat metadata, database handles, network access, or any mutation operation.
 
@@ -214,7 +229,7 @@ Every source other than a Professor Mari draft — third-party packages, your ow
 1. On the host: `ENABLE_EXTERNAL_EXTENSIONS=true` in `.env`
 2. In app: **Settings > Advanced > Danger Zone** → below the data-deletion controls → enable **Allow third-party extension imports**
 
-Only then does **Settings > Addons** show **External Extensions** with file/folder import (**Import Folder**). Supported formats: `.personal-extension.zip` and compatible `.zip`, `.json` manifests, `.css`, `.js`/`.mjs`/`.cjs`, `.server.js`/`.server.mjs`/`.server.cjs`. From a non-localhost browser, import and management also need **Admin Access** (see the manifest section above).
+Only then does **Settings > Addons** show **External Extensions** with **Import Extension File** and **Import Extension Folder** (`docs/extending/writing-personal-extensions.md` still says "Import Folder" — the UI wins). Supported formats: `.personal-extension.zip` and compatible `.zip`, `.json` manifests, `.css`, `.js`/`.mjs`/`.cjs`, `.server.js`/`.server.mjs`/`.server.cjs`. From a non-localhost browser, import and management also need **Admin Access** (see the manifest section above).
 
 Imports **never carry approval and cannot enable themselves.** Legacy, profile-imported, manually stored, and unknown-source records are all treated as external — hidden, unapprovable, and excluded from both runtimes until both gates open. Closing either gate stops external server processes, removes browser workers and full page nodes, and disables the records; reopening does **not** auto-restart them.
 
@@ -238,10 +253,10 @@ From `packages/shared/src/schemas/personal-extension.schema.ts` — useful when 
 
 Approval carries **two** acknowledgement literals, which is how the two-tier disclosure is enforced rather than merely displayed:
 
-- **`acknowledgeSandboxedCode: z.literal(true)`** — required on *every* approval.
-- **`acknowledgeFullPageAccess: z.literal(true)`** — additionally required for a Full page access package.
+- **`acknowledgeSandboxedCode: z.literal(true)`** — a required literal on *every* approval; the schema refuses anything else.
+- **`acknowledgeFullPageAccess: z.literal(true).optional()`** — optional in the schema, but the approve route refuses a Full page access package without it (HTTP 400 "Full page access must be explicitly acknowledged.").
 
-Because both are `z.literal(true)`, neither can be defaulted or skipped programmatically — the server refuses the approval outright.
+So neither can be defaulted or skipped programmatically — one by the schema, the other by the route.
 
 ### Recovery
 
@@ -259,7 +274,7 @@ Before promising an extension can do something, walk this:
 2. **Does it need custom visual output?** → Only the fixed control vocabulary. No HTML/CSS/React. If they want real visual styling, that's a **theme**, possibly alongside an extension for behavior.
 3. **Does it need network access?** → Not in the sandbox. A **webhook custom tool** is usually the right answer instead (see `custom-tools.md`).
 4. **Is it a Server Extension on Windows/Android (or the default Docker container)?** → Won't run. Redirect.
-5. **Is it something to distribute?** → The recipient needs both external gates open and must approve the hash — the same as for code they hand-write themselves. An official agent package or custom GitHub agent repo is a smoother distribution path (see `agents.md`).
+5. **Is it something to distribute?** → The recipient needs both external gates open and must approve the hash — the same as for code they hand-write themselves — and every update means re-importing under the same name and re-approving (no auto-updater). An official agent package or custom GitHub agent repo is a smoother distribution path (see `agents.md`).
 6. **Is it really an extension at all?** → Per-turn automation is an **agent**; model-invoked actions are a **custom tool**; text transforms are **regex scripts**; pure styling is a **theme** (or a native Appearance setting); tabletop mechanics for Game Mode are a **ruleset** — JSON data, no code (see `rulesets.md`). A simple card on Home can be a **custom Home widget**: Professor Mari proposes a safe, data-only widget for explicit confirmation, managed in **Home Widgets** under **Personal** (v2.4.2, #4801) — no code to review. Extensions are for user-invoked UI surfaces and private per-chat state.
 
 ## Related references

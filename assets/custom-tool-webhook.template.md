@@ -35,7 +35,7 @@ Open the **Presets** panel → **Functions** section (wrench icon) → **Create 
 **Description:** 1-2 sentences. Say what it returns AND when to use it.
 **Parameters:** required fields only in `required`. Use `enum` for bounded choices. Always include `description` on each property.
 
-**Turn tool use on for the chat:** **Chat Settings → Function Calling → Enable Tool Use** (off by default for a new chat). With no tools added there, the chat gets every globally enabled tool; **Add Functions** narrows it to a chosen set. Claude and Grok *subscription* connections don't support tools at all.
+**Turn tool use on for the chat:** **Chat Settings → Function Calling → Enable Tool Use** (off by default for a new chat). With no tools added there, the chat gets every enabled custom tool plus the chat-eligible built-ins (including `web_search` — check it doesn't already cover your need); **Add Functions** narrows it to a chosen set. Claude and Grok *subscription* connections don't support tools at all. (A tool attached to an **agent** instead runs in that agent's call whether or not Enable Tool Use is on.)
 
 ## 2. Teach the Character to Use It (in the card)
 
@@ -54,6 +54,10 @@ The engine POSTs JSON to your URL with this shape (plus a `context` object when 
   "arguments": { "id": "client-123", "include_details": true }
 }
 ```
+
+Marinara validates `arguments` against the tool's `parametersSchema` before calling you (a mismatch goes back to the model, not to you), but still validate them yourself.
+
+With **Include hidden chat context** on, the body also carries `context`: `chatId`, `chatMode`, `personaId`/`personaName`, `characterId`/`characterName`, `characterIds`, `characterNames`, `characters`, `variables` (chat variables), `recentMessages` (IDs and roles only), `gameState`, and `macros` — which holds the primary character's **full card text** (description, personality, scenario, backstory, appearance, example dialogue, system prompt, post-history instructions), the persona's card text, and the user's **last message** (`macros.input`). Leave it off unless your backend needs that, and never on a webhook you don't control. Full list: `references/custom-tools.md` → `includeHiddenContext`.
 
 You return JSON. Keep it concise — it becomes tokens in the model's context.
 

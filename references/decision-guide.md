@@ -13,7 +13,7 @@ Before architecture, pick the **mode** the experience runs in — this is orthog
   - **Combat Preference** (2.3) — classic narrative combat or tactical grid battles with four difficulty levels; changeable later via Chat Settings → Combat Style.
   - **Experiences** — package-provided whole-game UIs (`game-surface`, 2.4.1), fixed for the game's lifetime.
 
-  Game setups also export/import as reusable `.marinara-game-setup.json` bundles that refill the New Game wizard (and carry the chosen ruleset).
+  The wizard also chooses **Game Master Mode** — **Standalone GM** (default) or **Character GM** (one of the user's cards runs the game). Game setups export/import as reusable `.marinara-game-setup.json` bundles that refill the New Game wizard (and carry the chosen ruleset). There is no in-app checkpoint restore, so don't offer "load an old checkpoint" as an undo.
 
 **Not a mode:** **Noodle** (the fake social network) and **Slurp** are downloadable **App** packages since 2.4.2. Install from Agents → Download Agents, restart, and open from the Home tab. Pick one for a living multi-character social feed rather than a direct chat; social memory carries over into the three modes. See `references/architecture.md`.
 
@@ -72,7 +72,9 @@ See `references/conditional-prompts.md`.
 ### 4. Does the knowledge change frequently (weekly or faster)?
 **Frequently** = there's a live authoritative source somewhere (an API, a scraper, a RSS feed, a database, a spreadsheet).
 
-→ **Custom tool with `webhook` execution.** Stand up a tiny backend (Cloudflare Worker, n8n, Express on a VPS, Zapier webhook) that the character can call. Return JSON to the model.
+→ **First, is general web search enough?** The built-in **`web_search`** tool (title/URL/snippet results, up to 8) covers "what's in the news about X" with no backend — enable it for the chat (see `references/custom-tools.md` → Built-In Tools).
+
+→ **Otherwise, a custom tool with `webhook` execution** — for a specific authoritative source. Stand up a tiny backend (Cloudflare Worker, n8n, Express on a VPS, Zapier webhook) that the character can call. Return JSON to the model.
 
 **Fits:** Path of Titans meta (patch notes change per release), sports scores, stock prices, your band's next show, "what's in the news about X."
 
@@ -89,7 +91,7 @@ Actions = effects in the world. Creating a file, updating a row in your DB, send
 
 **Capabilities that are NOT hand-built custom tools:**
 - **Generating or animating images/video** is a *native* capability — see Q10.
-- **Controlling a Home Assistant setup** — Marinara can **auto-generate** the webhook tools from your HA entities and re-sync them (needs `WEBHOOK_LOCAL_URLS_ENABLED=true`, since HA is local plain-HTTP). See `references/custom-tools.md`.
+- **Controlling a Home Assistant setup** — install the **Marinara Engine** integration in Home Assistant through **HACS**. It creates a fixed set of smart-home Functions (lights, climate, covers, media players, and more) plus a **Home Assistant** agent you add to each chat; you never write the tools yourself. Needs `WEBHOOK_LOCAL_URLS_ENABLED=true`, since HA's webhook is local plain HTTP. Don't hand-edit the generated tools: **Marinara Sync HA Tools** (on the HA device page) overwrites edits and re-enables them. See `docs/integrations/home-assistant.md`.
 - **Rolling dice, keeping secrets, sending in-world letters or DMs in Roleplay** — built-in Roleplay Commands (Q6).
 
 **Fits:** "Look up the WordPress config for client X," "create a character based on this description" (this is literally what Mari does), "compute the optimal grow schedule given these inputs."
@@ -103,12 +105,12 @@ See `references/custom-tools.md` for the full execution-type breakdown.
 ### 6. Does something built in, or an official package, already do this?
 Check this **before** designing a custom agent, tool, or extension. Recent releases built in a lot of what people used to hand-roll:
 
-- **Roleplay Commands** (2.4.6, Chat Settings → Agents → Roleplay Commands; each one starts **off**). In-message commands for:
-  - **Whisper** — private asides and secrets that only the recipient and the narrator receive.
+- **Roleplay Commands** (2.4.6, Chat Settings → Agents → **Commands**; each one starts **off**). In-message commands for:
+  - **Whisper** (2.5.0, #6616) — a private aside that only the recipient (a character or your persona) and the appointed narrator receive. You can also type whispers in your own messages.
   - **Personal Notes** — a character's private motives, lies, and plans, carried across turns.
   - **Reminders**, in-world **documents**, real **dice rolls**, and **direct messages**.
   - **Interruptions** — a character cuts off the previous message.
-  - Sound cues, soundtrack changes, and illustrations — these need the matching agent in the chat.
+  - **Combat** (needs the Combat agent in the chat), **Illustrations** (needs Illustrator), **Soundtrack** (needs Music DJ), and **Sound Cues** (need an ElevenLabs Audio connection with sound effects on).
 
   Notes, documents, and whispers follow the selected swipe. Several need a solo chat or **Individual** group generation. Route "the character keeps secrets / writes letters / rolls real dice" here before any custom agent.
 - **Game Mode rulesets** (2.5.0). "Play D&D 5e / my homebrew system in Game Mode" → a **ruleset**: one JSON data file (dice resolution, sheet, resources, rests, items, combat, bestiary, Game Master text), chosen under **Rules** in the new-game wizard. Nothing in it executes and it adds no per-turn model calls. Only `dice-sum` and `dice-pool` resolution exist — other mechanics need an Engine PR. See `references/rulesets.md`.
@@ -123,8 +125,8 @@ Check this **before** designing a custom agent, tool, or extension. Recent relea
   - Trackers: Quartermaster (inventory/outfits), Relationship Tracker, World State, Quest Tracker.
   - Writers: continuity checking, card evolution, prose guarding.
   - Media: Illustrator, Calls.
-  - Fun: the table games, Gacha Forge.
-  - The Noodle and Slurp social Apps.
+  - Fun: the table games.
+  - **Apps** that open their own Home tab and need a restart after install: Noodle and Slurp (social feeds), Gacha Forge.
 
   Fresh installs contain **no** optional agents, so include the install step (and the restart, for Apps). Professor Mari can compare packages and recommend one. **Custom GitHub agent repositories** (#3861) can distribute third-party packages and rulesets — disabled by default, manual preview/apply, explicit per-repo trust. Only recommend one the user already trusts.
 
@@ -139,14 +141,14 @@ Per-turn automation = not user-initiated, not tool-triggered — just runs in th
 
 → **Custom agent**, placed in the right phase:
 - **`pre_generation`** — runs before the main response. Use for: injecting context, reviewing the prompt, rewriting directives, and (2.4.4) choosing which attached characters reply this turn.
-- **`parallel`** — runs alongside the main response. Use for: side tasks that don't block (image generation, music suggestions, reactions from absent characters).
-- **`post_processing`** — runs after the main response. Use for: fact-checking, state extraction, rewriting for style, tracking variables.
+- **`parallel`** — runs alongside the main response, from the pre-reply scene only (it can't see the reply). Use for: side tasks that don't block, such as reactions or lookups that don't depend on what the character says next.
+- **`post_processing`** — runs after the main response. Use for: fact-checking, state extraction, rewriting for style, tracking variables, and media that should match the reply (the official Illustrator and Music DJ run here).
 
 Since 2.4.4 a custom agent can also opt into **Create character cards** — proposing complete, editable cards that wait for the user's approval. That route covers "auto-create NPC cards as they appear."
 
 Agents cost tokens and latency. Custom agents run in all three modes — but only while the chat's **Enable Agents** master toggle is on; if an agent "isn't firing," check that toggle first.
 
-> **⚠️ Always specify context sources (2.4.0, #4305).** A custom agent receives **chat history only** by default. `characters`, `persona`, `activatedLorebookEntries`, `chatSummary`, `authorNotes`, `trackerData`, and `recalledMemories` are each **off** until enabled in that agent's **Context Sources**. So "a continuity checker" is incomplete advice — it needs `characters` + `activatedLorebookEntries` + `chatSummary` to do its job.
+> **⚠️ Always specify context sources (2.4.0, #4305).** A custom agent receives **chat history only** by default. `characters`, `persona`, `activatedLorebookEntries`, `chatSummary`, `authorNotes`, `trackerData`, and `recalledMemories` are each **off** until enabled in that agent's **Context Sources**. (`recalledMemories` carries the built-in **Memory Recall** results — not the Long-Term Memory package vault — and also needs the agent's **Vectors/embeddings** capability, `access_vectors`; it is empty while Advanced Memory Recall is on.) So "a continuity checker" is incomplete advice — it needs `characters` + `activatedLorebookEntries` + `chatSummary` to do its job.
 >
 > Two later changes extend the rule:
 > - In **Roleplay**, agent requests leave out chat summaries unless the chat's **Attach chat summaries** switch (Chat Settings → Agents) is on (2.4.6). This applies to built-in agents too.
@@ -161,7 +163,7 @@ Agents cost tokens and latency. Custom agents run in all three modes — but onl
 **Before rejecting an agent on cost, gate it:**
 - **Activation Keywords** (up to 100 phrases) with a **Scan Depth** (default 5, max 200) — the agent runs only when a keyword appears in that many recent messages. For post-processing agents, the keywords scan the finished reply (2.4.1). Empty keywords means run every turn — the default, and why unconfigured agents feel expensive.
 - With a Decision model, an **Activation question** (2.5.0) — a statement of fact the model checks before the agent runs. Pair it with keywords or a trigger cadence, and use its **Bypass after N messages** safety valve.
-- **Share requests with other agents** (on by default since 2.5.0) batches agents into shared calls. Turn it off for a local model that mixes up tasks.
+- **Request batching:** compatible agents are batched into shared requests by default (long-standing). 2.5.0 added a per-agent **Share requests with other agents** switch to opt one out — turn it off for a local model that mixes up batched tasks.
 
 Combined with a narrow `contextSources` set, an occasional-but-automatic job is perfectly viable as an agent. "Only sometimes" is not automatically a tool.
 
@@ -187,7 +189,7 @@ Look-and-feel = colors, fonts, backgrounds, spacing, restyling existing elements
 - **A card on the Home dashboard** → ask Professor Mari for a **data-only custom Home widget** (2.4.2, #4801). Or have a custom agent publish bounded text to its Home widget during normal runs (2.5.0). Users arrange both in the **Widget Manager**.
 - **A Personal Extension** (Settings > Addons) for anything more interactive.
   - **Authoring:** ask **Professor Mari** to draft it. Or the user hand-writes one following `docs/extending/writing-personal-extensions.md` (2.4.3) and imports it — hand-written code arrives as an External Extension behind both gates. Either way, the user reads the code, approves the exact SHA-256 hash, and enables it.
-  - **What it can do:** it runs in a sandboxed Worker and can register top-bar buttons, Extensions-menu items, and right-side panels via `marinara.ui.registerContribution(...)`, built from a fixed control vocabulary (heading, text, pre, button, input, select, toggle, slider, color, spacer).
+  - **What it can do:** it runs in a sandboxed Worker and can register buttons (on the top bar or on the Chats, Characters, Personas, Lorebooks, Presets, Connections, Agents, and Settings panels), Extensions-menu items, and right-side panels via `marinara.ui.registerContribution(...)`, built from a fixed control vocabulary (heading, text, pre, button, input, select, toggle, slider, color, spacer).
 
 **Fits:** A per-chat notepad, a settings-style control panel for something the user tracks by hand, a small dashboard keyed to the active chat or character, a launcher for a multi-step workflow whose state lives in `marinara.storage`.
 
@@ -261,7 +263,7 @@ Text transform = find/replace on the strings flowing through the pipeline — st
 
 > **Two settings decide whether the script does anything at all — name both.**
 > - **Apply Mode** (Advanced Options) defaults to **Only Display**, which changes on-screen text only and leaves the prompt untouched. To change what the *model* reads, it must be **Only Prompt** or **Both**. For a **User Input** script, Only Display/Both rewrite the message *before it is sent*, changing what is saved and transmitted — there is no display-only mode for outgoing user messages.
-> - **Scoped Regex Scripts** (Chat Settings) decides whether character-scoped scripts run: Disabled / Exclusive / Chat. A chat with no override inherits its preset's default (2.4.6). "I wrote a character regex and nothing happened" is usually this setting.
+> - **Scoped Regex Scripts** (Chat Settings) decides whether character-scoped scripts run **on screen**: Disabled / Exclusive / Chat. A chat with no override inherits its preset's default (2.4.6). Prompt-side scoped scripts always follow the character actually generating the reply. "I wrote a character regex and nothing changed on screen" is usually this setting.
 >
 > See `references/custom-tools.md` for the full field set.
 
@@ -331,7 +333,7 @@ Ask AT MOST ONE before drafting options. Don't block.
 1. **"Is the knowledge stable, or does it change?"** — Gates lorebook vs. webhook tool.
 2. **"Do you want the character to *do* things, or just answer?"** — Gates tool-calling vs. pure conversation.
 3. **"Are you running this on a frontier model (Claude, GPT-5, Gemini) or something smaller/local?"** — Affects how much you can offload to the model's native knowledge. It also gates two things:
-   - **Tool use:** on the local llama.cpp sidecar, native (OpenAI-compatible) tool calling only works when it's launched with `--jinja` (the native-tool-calls runtime toggle). Setups that emit tool calls as plain `<tool_call>…</tool_call>` text (some KoboldCPP / Gemma configurations) are parsed and run since 2.5.0.
+   - **Tool use:** on the local llama.cpp sidecar, native (OpenAI-compatible) tool calling only works when it's launched with `--jinja` (the native-tool-calls runtime toggle). Setups that emit tool calls as plain `<tool_call>…</tool_call>` text (some KoboldCPP / Gemma configurations) are recognized and run; since 2.5.0 (#6951) that raw text also stays out of streamed replies.
    - **Decision features (Q3):** these need a Decision model on top of the chat model.
 4. **"Is this a one-off or something you'll maintain long-term?"** — Affects whether to optimize for build speed (card + prompt) or maintainability (lorebook + tools).
 5. **"Do you already have this data somewhere (Google Sheet, DB, API)?"** — Unlocks the webhook path.

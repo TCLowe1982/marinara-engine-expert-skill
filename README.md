@@ -17,7 +17,7 @@ It also enforces a mandatory pre-submission checklist before any PR is declared 
 
 **Built for beginners too.** The skill is tuned to assume the user may be brand new to coding, git, or development tooling. Before any significant action — opening a file, running a command, branching, editing code — Claude narrates what it's doing and why in plain-language analogies, then pauses so the user can follow along instead of silently batching changes. Concepts like branches, `pnpm check`, agents, and pattern-matching get explained the first time they come up, then dropped if the user demonstrates fluency. The goal: a hobbyist contributor with zero CS background can ship a working PR.
 
-The skill enforces every rule in CONTRIBUTING.md and the engine's AGENTS.md — server-side logging via Pino (with the request-id trail rules), link-the-issue PR bodies, a CHANGELOG `[Unreleased]` entry per change, in-same-PR doc updates, recorded-against-this-revision validation, and version-drift checks across every version-bearing file. It is synced to **Marinara Engine v2.5.0** (2026-10-06), covering every release since v2.4.0 — including 2.4.5, which shipped without a git tag.
+The skill enforces the core rules in CONTRIBUTING.md and the engine's AGENTS.md — server-side logging via Pino (with the request-id trail rules), link-the-issue PR bodies, a CHANGELOG `[Unreleased]` entry per change, in-same-PR doc updates, recorded-against-this-revision validation, and version-drift checks across every version-bearing file. It is synced to **Marinara Engine v2.5.0** (2026-10-06), covering every release since v2.4.0 — including 2.4.5, which shipped without a git tag.
 
 ## Scope: user-facing, not engine-interior
 
