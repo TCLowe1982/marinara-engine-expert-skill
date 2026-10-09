@@ -2,7 +2,7 @@
 
 Custom tools are the primary modding surface for **giving a character real capabilities**. They expose user-defined functions to the main chat model as OpenAI-compatible function definitions. When the model decides to call a tool, the server executes it and feeds the result back into the conversation.
 
-**Source of truth:** `packages/server/src/services/tools/tool-executor.ts` and `packages/shared/src/schemas/custom-tool.schema.ts`.
+**Source of truth:** `packages/server/src/services/tools/tool-executor.ts` (+ `custom-tool-script.worker.ts`) and `packages/shared/src/schemas/custom-tool.schema.ts`. User guide: `docs/extending/custom-tools.md`.
 
 ## Schema
 
@@ -12,19 +12,24 @@ Custom tools are the primary modding surface for **giving a character real capab
   description: string,    // 1-500 chars, shown to the model as the function description
   parametersSchema: object,  // JSON Schema for function parameters (default: {})
   executionType: "static" | "webhook" | "script",  // default: "static"
-  webhookUrl: string | null,      // required if executionType is "webhook"
-  staticResult: string | null,    // required if executionType is "static"
-  scriptBody: string | null,      // required if executionType is "script"
-  includeHiddenContext: boolean,  // default: false; when true, Marinara passes a `context` object (current-turn runtime context) to the webhook body / script sandbox
+  webhookUrl: string | null,      // used when executionType is "webhook"
+  staticResult: string | null,    // used when executionType is "static"
+  scriptBody: string | null,      // used when executionType is "script"
+  // (none of the three is enforced at save — all default null; static falls back to "OK",
+  //  a missing URL/body fails at call time: "No webhook URL configured" / "No script body configured")
+  includeHiddenContext: boolean,  // default: false; when true, Marinara passes a `context` object to the webhook body / script sandbox — card and persona text included (see `includeHiddenContext` below)
   enabled: boolean,       // default: true
+  sortOrder?: number,     // drag order in the Functions list — display only
 }
 ```
 
 When the tool is enabled and the chat is configured to allow tools, the tool is added to the OpenAI-format `tools` array sent to the LLM. The model decides whether and when to call it. Multiple tools can be called in a single turn; the executor runs them sequentially.
 
-**Local models:** native (OpenAI-compatible) tool calling only fires on the local llama.cpp sidecar when it's launched with `--jinja` — gated by the runtime's native-tool-calls toggle (`enableNativeToolCalls`). Without it, custom tools won't be called on a local model even if defined. Frontier provider models call tools normally.
+**Local models:** *native* (OpenAI-compatible) tool calling on the local llama.cpp sidecar needs it launched with `--jinja` — the runtime's native-tool-calls toggle (`enableNativeToolCalls`). It isn't the only route (earlier guidance here said tools never fire without it — too strong): on OpenAI-compatible connections, a reply with no native `tool_calls` that writes `<tool_call>{"name": …, "arguments": …}</tool_call>` as text (some KoboldCPP and Gemma setups do) is parsed and run, and a connection with **Treat as local/custom endpoint** on also gets an `<available_functions>` block in its system prompt teaching that format. **(v2.5.0, #6951)** With streaming on, that raw `<tool_call>` text no longer leads the reply on screen and isn't saved. Frontier provider models call tools natively; **Claude and Grok subscription** connections ignore tool definitions entirely (Chat Settings shows a notice and disables the tool controls).
 
-**Connection Custom Parameters (v2.3):** saved Custom Parameters on a Connection apply to **every** API-backed text generation on that connection — including Noodle and locally hosted custom endpoints — while per-chat/per-call overrides still take precedence. Arbitrary JSON and bare string parameter values are preserved as-is, and unified reasoning-effort requests work again for discovered OpenRouter models (#3688). **(v2.3.4, #3845)** Enabled Connection generation defaults now apply across **every Noodle text-generation path**, and custom OpenAI-compatible endpoints accept explicitly enabled **top-k**, **reasoning-effort**, and **verbosity** parameters.
+**Provider notes:** each tool call costs one more request. **(v2.4.6, #5904/#5918)** Gemini and Anthropic replies stream normally on tool-using turns. Gemini with thinking on streams too on Google's official endpoint (`generativelanguage.googleapis.com`); proxies and other Gemini endpoints (e.g. Vertex AI) still buffer thinking turns. The Function Calling panel's note still says Gemini-with-thinking is excepted — the code wins. **(v2.4.4, #5430)** OpenAI-compatible custom connections keep Anthropic-style `tool_use` blocks, so proxies like LinkAPI Opus show tool calls again.
+
+**Connection Custom Parameters (v2.3):** saved Custom Parameters on a Connection apply to **every** API-backed text generation on that connection — including Noodle and locally hosted custom endpoints — while per-chat/per-call overrides still take precedence. Arbitrary JSON and bare string parameter values are preserved as-is, and unified reasoning-effort requests work again for discovered OpenRouter models (#3688). **(v2.3.4, #3845)** Enabled Connection generation defaults now apply across **every Noodle text-generation path**, and custom OpenAI-compatible endpoints accept explicitly enabled **top-k**, **reasoning-effort**, and **verbosity** parameters. **(v2.5.0, #7131)** Agents now use the connection's **Use custom defaults for this connection** settings too (Top P/K, Frequency, Presence, Reasoning Effort, Verbosity, OpenRouter Service Tier, Custom Parameters and headers; a parameter with a Send switch is sent only while it's on) — including retries, knowledge agents, the Illustrator's prompt writer and installed packages. Custom defaults start Reasoning Effort at **Maximum**, which now replaces the "off" JSON agents asked for — turning custom defaults on can make every agent reason at Maximum (cost). **(v2.4.4, #5351)** On **Claude Subscription** connections, custom parameters may override model-generation settings only; tool, process, environment, filesystem and session controls stay provider-owned.
 
 ## Execution Types
 
@@ -45,7 +50,7 @@ The server POSTs `{ tool: <name>, arguments: <args> }` to `webhookUrl` as JSON, 
 
 **The URL must be HTTPS, and local/private targets are blocked by default.** The request goes through an SSRF-hardened `safeFetch`: only `https:` is allowed, and loopback/private/reserved hosts (`localhost`, `127.0.0.1`, `192.168.x.x`, etc.) are rejected unless the server sets `WEBHOOK_LOCAL_URLS_ENABLED=true`. So a `http://localhost:3100` dev backend won't work out of the box — expose it over HTTPS (e.g. a tunnel) or set `WEBHOOK_LOCAL_URLS_ENABLED=true` for local testing.
 
-**Home Assistant integration:** Marinara has a first-class Home Assistant integration that **auto-generates webhook custom tools from your HA entities** — you don't hand-write them. Re-syncing updates the already-generated tools in place rather than duplicating them. Because Home Assistant is reached over the local network as plain HTTP, these generated tools hit the exact SSRF gate above, so the integration **requires `WEBHOOK_LOCAL_URLS_ENABLED=true`** (same knob as the localhost note). Source of truth: `docs/integrations/home-assistant.md`. (The integration landed in an intermediate 2.0.x update; the 2.1 doc refresh corrected its docs/defaults — the current port, the `WEBHOOK_LOCAL_URLS_ENABLED=true` requirement, and the re-sync-updates-existing behavior.)
+**Home Assistant integration:** a **HACS custom integration installed inside Home Assistant** (Custom repositories → `https://github.com/Pasta-Devs/Marinara-Engine`, category Integration; then Add Integration → Marinara Engine, host/port default `localhost`/`7860`). It creates a **fixed set of 23 `ha_*` webhook tools in 8 categories** (`ha_turn_on`, `ha_set_temperature`, `ha_get_state`, … — each takes a device or a room/area name), **not** one tool per entity, plus a **Home Assistant** agent listing them. That agent must be **added to each chat** (Chat Settings → Agents) — that's what makes the tools available there; nothing else needs turning on. **Locks** and **Generic Service Calls (Advanced)** (`ha_call_service`, any HA service) are off by default. Change categories in HA (Marinara Engine → **Configure**), then press **Marinara Sync HA Tools**: it updates tools in place, rebuilds a deleted agent, and **disables (not deletes)** deselected-category tools — and overwrites hand edits, so don't edit the `ha_*` tools in Marinara. Because the HA webhook is local plain HTTP, the tools hit the SSRF gate above: the integration **requires `WEBHOOK_LOCAL_URLS_ENABLED=true`** (applies within seconds, no restart). The integration logs in with no credentials, so an HA on **another device** needs its IP in `IP_ALLOWLIST` (or `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true` on a trusted LAN); `BASIC_AUTH_USER`/`PASS` blocks it unless allowlisted. It also adds HA services `marinara_engine.send_message` / `marinara_engine.trigger_generation` so HA automations can push messages into a chat. Source of truth: `docs/integrations/home-assistant.md`. (Landed in an intermediate 2.0.x update; the 2.1 doc refresh corrected its docs/defaults.)
 
 **This is the primary integration point for real work.** Use it to connect the character to:
 - Your own backend (Express, Fastify, Cloudflare Worker, Lambda, anything that speaks HTTP).
@@ -59,31 +64,24 @@ The server POSTs `{ tool: <name>, arguments: <args> }` to `webhookUrl` as JSON, 
 2. Validate and process.
 3. Return JSON. Keep it concise — whatever you return goes into the model's context.
 
-**Error handling:** If the webhook fails (timeout, non-200, network error), the tool result becomes `{ error: "Webhook call failed: <msg>" }`. The model sees the error and can react — often retrying or apologizing to the user.
+**Error handling:** a timeout or network error becomes `{ error: "Webhook call failed: <msg>" }`; a non-2xx reply still reaches the model with its parsed body, flagged as failed. Any result carrying a string `error` key counts as a failed call. The model sees the error and can react — often retrying or apologizing to the user. **(v2.4.6)** Failed and denied tool calls also show the user a short notification even with debug mode off.
+
+**Stored URLs (v2.4.2):** webhook URLs are encrypted at rest (same scheme as connection API keys), but the editor shows them in full and **Export function** writes them out in plain text.
 
 **When to use:** Any tool that needs to reach outside the engine. **This is the default recommendation for real functionality.**
 
 ### `script` — Sandboxed server-side JavaScript
-**Disabled by default.** Script execution only runs if the server is started with `CUSTOM_TOOL_SCRIPT_ENABLED=true`; otherwise the call returns `{ error: "Script custom tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true to allow local code execution." }`. Tell the user to set that env var before recommending a script tool.
+**Disabled by default.** Script tools need `CUSTOM_TOOL_SCRIPT_ENABLED=true` in the server's `.env` and a restart. With it off, the editor greys out the **Script** card, existing Script tools show an amber **Script disabled** pill and are not offered to the model, saving a Script tool is refused (HTTP 403), and a direct call returns `{ error: "Script custom tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true to enable trusted isolated script tools." }`. Tell the user to set that env var before recommending a script tool.
 
-When enabled, the `scriptBody` string is executed via Node's `vm.runInNewContext` with the shared custom-tool timeout (**60s by default**, via `CUSTOM_TOOL_TIMEOUT_MS`). The script runs inside a wrapper: `"use strict"; (function() { <scriptBody> })()`.
+**How it runs (changed in v2.4.2 — earlier guidance said Node's `vm.runInNewContext`):** each call starts a terminable `node:worker_threads` Worker that evaluates the body in a **QuickJS** interpreter (`quickjs-emscripten`), capped at **32 MiB memory** and a **2 MiB stack**, with a deadline interrupt plus a hard `worker.terminate()` at the shared custom-tool timeout (**60s by default**, `CUSTOM_TOOL_TIMEOUT_MS`). The wrapper is `"use strict"; … JSON.stringify((function() { <scriptBody> }).call(undefined))`, so **the return value is JSON-serialized** — return plain JSON-able data; returning nothing yields `{ result: "OK" }`. A thrown error comes back as `{ error: "Script error: <msg>" }`.
 
-**The sandbox exposes ONLY:**
-- `args` — the tool arguments as an object
+**Inside the sandbox:**
+- `args` — the tool arguments (a JSON copy)
 - `context` — the current-turn runtime context, or `null` (only populated when the tool has `includeHiddenContext: true`)
-- `JSON` — with `.parse` and `.stringify`
-- `Math`
-- `String`, `Number`, `Date`, `Array`
-- `parseInt`, `parseFloat`, `isNaN`, `isFinite`
-- `console` — with a no-op `console.log`
+- `console.log` — a no-op
+- Standard ECMAScript built-ins only — `JSON`, `Math`, `Date`, `String`/`Number`/`Array`/`Object`, `RegExp`, `Map`/`Set`, `parseInt`/`parseFloat`, etc.
 
-**The sandbox does NOT expose:**
-- `fetch`, `XMLHttpRequest`, or any network
-- `require`, `import`, or module loading
-- `process`, `globalThis`, `__dirname`
-- Filesystem (`fs`, `path`)
-- Timers (`setTimeout`, `setInterval`) — only the wrapper timeout applies
-- Any Node built-ins beyond the above
+**Not available:** `fetch` or any network, `require`/`import`, `process`, `Buffer`, filesystem, environment variables or server secrets, timers (`setTimeout`/`setInterval`), or anything else from Node or the browser. The body runs **synchronously** — `await` is a syntax error and a returned Promise serializes to `{}`. The engine doc's own caveat: this blocks network and file access but **is not full operating-system isolation** — a script can still burn CPU and memory up to its caps, so only enable scripts on servers you trust.
 
 **What scripts are actually good for:**
 - Date math (parse a date, add days, format output).
@@ -126,32 +124,43 @@ When enabled, the `scriptBody` string is executed via Node's `vm.runInNewContext
 
 The model sees the schema and uses it to generate well-formed arguments. **Describe each parameter clearly** — the `description` field is read by the model and strongly influences call quality.
 
+**Enforced, both ways.** The model's arguments are validated (Ajv) against this schema **before** your webhook or script runs; a mismatch goes back to the model as `{ error: "Invalid arguments for <name>: …" }` (enum failures name the allowed values), so your backend never sees it. The schema itself must pass a check at generation: root `type` must be `"object"` (filled in if absent), each property's `type` must be **one string** from `string`/`number`/`integer`/`boolean`/`array`/`object`/`null` (a type array like `["string","null"]` is refused), and `enum`/`required` must be arrays. A tool whose schema fails is **silently dropped from every chat** (server-log warning only) — whether it was imported or built in the editor.
+
 ## Built-In Tools (Not Custom, but Same Protocol)
 
-Marinara ships built-in tools that work the same way (the executor switch in `tool-executor.ts`). **(v2.3)** The ~18-tool flat list predates the package split: 2.3.0 slimmed the base Engine, and Maps, Calls, the table games, and music/Spotify tooling now ship as downloadable agent packages — so package-owned tools only exist when their package is installed. The core tools (`roll_dice`, `update_game_state`, the lorebook tools, the chat summary/variable tools, `update_about_me`) remain true Engine built-ins:
-- `roll_dice` — parses dice notation like `"2d6+3"` and returns rolls, sum, total.
-- `update_game_state` — GM updates world state in Game Mode.
+Marinara ships **19 built-in tool definitions** (`BUILT_IN_TOOLS` in `packages/shared/src/features/function-calls/tool-registry.generated.ts`; run by the switch in `tool-executor.ts`). **(v2.3)** 2.3.0 slimmed the base Engine: Maps, Calls, the table games and the Music DJ agent now ship as downloadable agent packages, so their package-owned commands only exist when the package is installed. Not every built-in reaches the main chat model — three rules in `tool-resolution-runtime.ts`:
+
+- **Agent-only** — `save_lorebook_entry`, `edit_chat_message`, `read_chat_summary`, `append_chat_summary`, `read_chat_variable`, `write_chat_variable` are offered **only to agents that list them** in their tools (`enabledTools`), **never to the main chat model — even if added under Chat Settings → Function Calling** (the picker lists them, so adding one looks like it works).
+- **Default-off** — `update_about_me` and the six `spotify_*` tools are left out of the "Enable Tool Use with no tools added" default; they must be added explicitly.
+- Everything else (`roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search`) is on by default once Enable Tool Use is on.
+
+The list:
+
+- `roll_dice` — parses dice notation like `"2d6+3"` or a bare `"d20"` and returns rolls, sum, total. **(v2.4.6)** One shared grammar now reads notation for `roll_dice`, `/roll` and the GM skill-check tag; notation whose total can't be computed exactly is rejected. **(v2.4.6, #5798/#5901)** Game Mode attaches the dice tool to **every** game turn whether or not Function Calling is on, and the GM is told to roll for any real number; rolls render as `/roll`-style dice cards kept per swipe, and text-only connections can still request dice (the GM gets the real results in a follow-up request). Only the dice tool rides along — the rest still needs Function Calling. **Exception (v2.4.6, #6215):** with **Finish rolled turns in one request** on (Chat Settings → Function Calling, per chat, off by default) the dice tool is **not** auto-attached — the GM writes both outcome branches or a `[[roll: 2d6+3]]` placeholder and the engine rolls and fills the number in, one request instead of two (a `roll_dice` you enabled yourself is still sent). See `architecture.md` → Real dice. **(v2.5.0, #6945)** In Roleplay, a `roll_dice` added under **Function Calling** actually rolls; if the **Rolls** command is also on, its **Who can roll dice** choice applies.
+- `update_game_state` — **(narrowed in v2.4.6, #5798)** the GM's state tool now accepts only `location_change` / `time_advance`: it sets the game's shared clock or party location. It no longer offers stat, inventory or quest updates (those were reported as applied, then dropped) and refuses them with a message saying what it can do. Writes are **pending until the response is saved**, then confirmed on that message and swipe; locked fields and Spatial Context-owned locations are refused.
 - `set_expression` — character changes its sprite.
 - `trigger_event` — trigger an in-game event.
-- `search_lorebook` — semantic search over lorebook entries.
-- `save_lorebook_entry` — write a new lorebook entry. **(v2.1)** The agent/tool write-path size cap on entry content was removed — large entries written via this tool (or by the Lorebook Keeper agent) persist intact, with no pre-storage truncation.
-- `edit_chat_message` — edit an existing chat message.
-- `read_chat_summary`, `append_chat_summary` — read/append the chat's rolling summary.
-- `read_chat_variable`, `write_chat_variable` — per-chat key/value state.
+- `search_lorebook` — semantic search over lorebook entries. **(v2.4.6)** Also matches entry names, content and keys, includes entries without usable embeddings, and drops unrelated semantic hits. Game chats additionally need **Let the GM search lore** on.
+- `web_search` **(v2.0.7, #3074)** — compact public web results (title, URL, snippet) from DuckDuckGo Lite; `query` (required) + optional `limit` 1–8 (default 5), 10s timeout. No setup, no key, and **on by default** whenever Enable Tool Use is on with no tool filter — check this before suggesting a search webhook (and note it sends the model's query to DuckDuckGo).
+- `save_lorebook_entry` *(agent-only)* — write a new lorebook entry. **(v2.1)** The agent/tool write-path size cap on entry content was removed — large entries written via this tool (or by the Lorebook Keeper agent) persist intact, with no pre-storage truncation.
+- `edit_chat_message` *(agent-only)* — edit an existing chat message (a custom agent also needs the `edit_messages` capability).
+- `read_chat_summary`, `append_chat_summary` *(agent-only)* — read/append the chat's rolling summary.
+- `read_chat_variable`, `write_chat_variable` *(agent-only)* — per-chat key/value state.
 - `update_about_me` **(v2.2)** — lets the character rewrite its own "about me" profile. **Opt-in and default-off** (the user has to enable it per chat), and **Conversation-mode only** (server-enforced; it's not exposed in Game Mode). Takes `scope` + `content`: `scope: "public"` changes the character's real cross-chat bio that shows in every chat and is **surfaced to the user for approval first**; `scope: "chat"` writes a bio **private to that one conversation** (no approval needed). `content` may be empty to clear it. **(v2.3)** About Me and `update_about_me` stayed built into the Engine through the package split — they are **not** downloadable packages, and the tool's semantics are unchanged; as of 2.3.2, About Me *drafting* goes through Professor Mari instead of per-editor AI Write controls.
-- Spotify/music: `spotify_get_playlists`, `spotify_get_playlist_tracks`, `spotify_search`, `spotify_play`, `spotify_set_volume`, `spotify_get_current_playback`. **(v2.3)** These six are Music DJ-owned — they exist only when the Music DJ agent package is installed, not in the base Engine.
+- Spotify/music: `spotify_get_playlists`, `spotify_get_playlist_tracks`, `spotify_search`, `spotify_play`, `spotify_set_volume`, `spotify_get_current_playback`. The definitions ship in the base Engine (so their names stay reserved for custom tools) but are **default-off**, and they're only offered once a **Music DJ** agent (the downloadable package, v2.3+) has Spotify connected with playback-control scope — without that they're stripped from the turn even if added.
 
-Custom tools run through the same executor — they just hit the `default` case in the switch that tries the custom tools list.
+Custom tools run through the same executor: a call resolves **built-in → custom → package** tool, with the arguments validated against that tool's schema first (`executeToolCalls` in `tool-executor.ts`). An unknown name returns `{ error: "Unknown tool: …" }`.
 
 ## Custom Tools vs. Built-In Tools vs. Package-Owned Commands (v2.3)
 
-Three distinct things now share the tools/commands space:
+Four distinct things now share the tools/commands space:
 
-- **User-defined custom tools** — the subject of this file. Always available; created in the Agents panel.
+- **User-defined custom tools** — the subject of this file. Always available; created in the **Presets** panel's **Functions** section.
 - **Engine built-in tools** — the core list above. Ship with the Engine, no download needed; built-in Conversation commands stay configurable without any downloads.
 - **Package-owned commands** — commands belonging to downloadable agent packages. The six table games surface as **Commands toggles** (no Add Agent entries), and package-owned command toggles appear only for installed agents. Installed Conversation games **hot-activate their slash commands without an Engine restart** (#3699); route-bearing packages keep a safe restart path.
+- **Package-contributed tools (v2.5.0, Capability API 1.19)** — a package with the `tools` permission calls `api.registerTool({ name, description, parameters, handler })`; the model sees it as `<packageId>_<name>` (`-` → `_`, ≤64 chars), schema-validated before the handler runs. It's attached on every turn while the package is active (no per-chat switch) and needs native tool calls. Name resolution is built-in → custom → package, so your custom tool wins a collision. Caps: 16 tools per package / 64 total, 512-char descriptions, 8 KiB schemas, 64 KiB results, 10s handler wait. Author API: `docs/development/optional-agent-packages.md`.
 
-**Slash commands are package-gated:** `/illustrate` and `/selfie` are hidden until the Illustrator package is installed, and the Gallery Illustrate/Selfie/Storyboard/Video/Animate/Background actions require Illustrator installed **and enabled per chat**, in every mode. If a user reports a missing `/illustrate` or `/selfie` command, the fix is to install Illustrator from **Agents → Download Agents**, then enable it for the chat. Selfie prompt generation routes through the per-chat Prompt Model connection (#3638), and the Connections defaults category for image settings is now named **Images**.
+**Slash commands are package-gated:** `/illustrate` and `/selfie` are hidden until the Illustrator package is installed — if one is missing, install Illustrator from **Agents → Download Agents**. **(v2.5.0, #6874)** In Roleplay, the Gallery and `/illustrate` can make a one-off illustration with the installed Illustrator **without** enabling it (or automatic agents) for the chat — earlier guidance said every Gallery action needed Illustrator enabled per chat. Selfies stay opt-in per conversation (Chat Settings: "Enable Illustrator's Selfies command for this conversation"). Selfie prompt generation routes through the per-chat Prompt Model connection (#3638), and the Connections defaults category for image settings is now named **Images**.
 
 ## Best Practices
 
@@ -185,7 +194,7 @@ Example — bad:
 
 ## Example: WordPress Site Lookup Tool (webhook)
 
-**Tool definition (saved in the Agents panel → Custom Tools):**
+**Tool definition** (build it in **Presets → Functions → Create function**, or import this object as-is via **Import functions from ZIP or JSON**):
 ```json
 {
   "name": "get_site_config",
@@ -249,7 +258,7 @@ Pure computation. No network. Fits the sandbox.
 ## Anti-Patterns
 
 - **Using `static` in production** — it's a stub, not a tool. Useful for testing the model's willingness to call a tool; not useful for actual work.
-- **Putting API keys in webhook URLs as query params** — they're stored plaintext in the DB and visible in the UI. Use bearer tokens in your own backend's logic, not in the URL.
+- **Putting API keys in webhook URLs as query params** — encrypted at rest since v2.4.2, but still shown in the editor and written in plain text into every function export you share. Keep real credentials in your own backend's logic, not in the URL.
 - **Returning huge JSON blobs** — every byte the webhook returns becomes tokens in the model's context. Trim.
 - **Using `script` and then trying to import `node-fetch`** — won't work. Pivot to webhook.
 - **No tool description** — the model won't know when to call it. Required for decent call rates.
@@ -257,22 +266,26 @@ Pure computation. No network. Fits the sandbox.
 
 ## UI Location
 
-Custom tools are managed in **Agents Panel → Custom Tools** (the panel has a "Custom Tools" subsection below the agent list). The full-page editor is `packages/client/src/components/agents/ToolEditor.tsx`.
+Custom tools are managed in the **Presets** panel → **Functions** section (caption "Custom function calls available from Chat Settings") — not the Agents panel, as earlier guidance said. The full-page editor is `packages/client/src/components/agents/ToolEditor.tsx`. Creating, editing, deleting, reordering or toggling a tool is a privileged action: from any device other than the server, the user must first save a matching admin secret (`ADMIN_SECRET`) under **Settings → Advanced → Admin Access**.
 
-Tools are attached to chats via chat settings. A tool created in the panel is available globally; whether it's *active* in a given chat depends on that chat's tool list.
+Tools are attached to chats via **Chat Settings → Function Calling**. A tool created in the panel is available globally; whether it's *active* in a given chat depends on that chat's tool list. A tool whose parameter schema the engine can't accept — imported from a hand-edited file *or* built in the editor — is silently skipped at generation (server log only); see Parameters Schema for the rules, and rebuild its parameters by hand.
 
 **Tool portability (v2.3.4, #3953):** custom tools do **not** travel with agent files. Exported agents no longer bundle custom function definitions, and imported agent files cannot install functions, grant themselves tool access, or impersonate curated agent types. A recipient of a shared agent must **re-create (or already have) the tools and explicitly attach them** after import — any recommendation involving a shared agent file needs that step spelled out.
 
 ### UI naming: "Functions"
 
-In the interface, custom tools are labelled **Functions** — the section under Chat Settings has a wrench icon, and the actions read **Create function**, **Add Functions**, **Import functions from ZIP or JSON**, **Export functions to ZIP**. Use the UI wording when giving click-path instructions, and "custom tool" when talking about the schema. With **Enable Tool Use** on and no tools added below, a chat can use *all* globally enabled tools (built-ins like dice rolls and lorebook search, plus every enabled custom tool); adding specific tools narrows it to that set.
+In the interface, custom tools are labelled **Functions** — both the **Presets → Functions** section and the chat's **Chat Settings → Function Calling** section have a wrench icon, and the actions read **Create function**, **Add Functions**, **Import functions from ZIP or JSON**, **Export functions to ZIP**. Use the UI wording when giving click-path instructions, and "custom tool" when talking about the schema. **Enable Tool Use** is off by default for a new chat. With it on and no tools added below, a chat gets every enabled custom tool plus the chat-eligible built-ins (dice, lorebook search, `web_search`, …); the agent-only built-ins are never sent to the chat model, and `update_about_me` / `spotify_*` stay off until added explicitly (see Built-In Tools). Adding specific tools narrows it to that set.
 
-### ⚠️ Import security (v2.4.0)
+**Force To Call Tool** (same section) asks a compatible model to call one enabled function before it answers; some models ignore it. **(v2.4.2, #4907)** It sends native required-tool controls for Gemini, Vertex AI and compatible Anthropic requests. It silently falls back to automatic tool choice for manual Claude extended thinking, Claude Mythos, Claude Fable 5.1 (v2.4.6, #5735/#5737) and Claude Opus 5.5 / Sonnet 5.5 (v2.5.0, #6544/#6869) — on those models forcing a tool becomes "auto".
 
-**Imported webhook tools always arrive disabled, with "Include hidden chat context" forced off** — regardless of what the imported file requested. After import, Marinara shows the webhook's **destination origin** and the permissions the file asked for, so the user can inspect the full configuration before deliberately enabling it.
+### ⚠️ Import security (v2.4.0; Script tools since v2.4.2)
 
-- **Static and Script tools keep their imported enabled state.** Only webhooks are force-disabled — they're the ones that can exfiltrate to a third party.
+**Imported webhook and Script tools always arrive disabled, with "Include hidden chat context" forced off** — regardless of what the imported file requested. After import, Marinara shows a review listing each executable tool's type, the webhook's **destination origin**, and what the file asked for (**Requested enabled**, **Requested hidden context**), so the user can inspect the full configuration before deliberately enabling it.
+
+- **Only Static tools keep their imported enabled state.** (Changed in v2.4.2 — earlier guidance said Script tools kept theirs too; executable Script tools are now quarantined like webhooks.)
 - An import **skips any tool whose name clashes** with an existing tool or a built-in tool name.
+- **Profile imports (v2.4.2)** quarantine the same way: executable tools restored from a profile come back disabled for review.
+- Agent packages neither bundle nor import custom tools (see portability above).
 
 ### Reserved names
 
@@ -286,11 +299,16 @@ Two custom tools also cannot share a name. This is the other half of the lowerca
 
 ### Attaching tools to an agent
 
-Tools attach to a specific **agent** as well as to a chat (`docs/extending/custom-tools.md` → "Attaching tools to an agent") — that's how a custom agent gains a callable capability. Remember tools do **not** travel with an exported agent file (#3953): the recipient must already have, or re-create, the tools and attach them explicitly.
+Tools attach to a specific **agent** as well as to a chat (`docs/extending/custom-tools.md` → "Attaching tools to an agent") — that's how a custom agent gains a callable capability. An agent uses its attached tools in its own call **whether or not the chat's Enable Tool Use is on** — that switch governs only the main model's tools. (`docs/extending/custom-tools.md` says you still turn on Enable Tool Use; the code and `docs/integrations/home-assistant.md` agree it isn't needed — the code wins.) Remember tools do **not** travel with an exported agent file (#3953): the recipient must already have, or re-create, the tools and attach them explicitly.
 
 ### `includeHiddenContext`
 
-The setting granting a tool hidden chat context beyond its declared parameters. Defaults to `false`, and **v2.4.0 forcibly strips it from imported webhook tools** regardless of what the file requested — precisely because a webhook can forward whatever it receives to a third party.
+The setting (**Include hidden chat context**) granting a tool hidden chat context beyond its declared parameters. Webhooks get it as `body.context`, scripts as `context` (`buildCustomToolHiddenContext` in `tool-resolution-runtime.ts`). It carries **far more than the editor's help text says** (that copy lists IDs/names, chat variables, recent message IDs and game state):
+
+- top level: `chatId`, `chatMode`, `personaId`, `personaName`, `characterId`/`characterName` (the primary character), `characterIds`, `characterNames`, `characters` (`[{id, name}]`), `variables` (the chat's agent variables), `recentMessages` (`[{id, role, characterId}]` — no text), `gameState`;
+- `macros`: user/persona names plus **`persona`** (the persona's description, personality, backstory, appearance and scenario joined), the primary character's **`description`, `personality`, `backstory`, `appearance`, `scenario`, `example`** (example dialogue), **`charSysInfo`** (the card's system prompt) and **`charPostHistory`** (post-history instructions), **`input`** (the user's last message text), and `date`/`time`/`datetime`/`isotime`/`weekday`.
+
+So turning it on for a webhook **sends card text, persona text and the user's last message off-box** on every call. Defaults to `false`, and **import forcibly strips it from webhook tools (v2.4.0) and Script tools (v2.4.2)** regardless of what the file requested — precisely because a webhook can forward whatever it receives to a third party.
 
 Enable it deliberately, on tools you authored, where the tool genuinely needs scene context the model would otherwise have to restate in its arguments. Never enable it on an imported webhook without reading the destination URL first — the Functions panel surfaces the origin for exactly this reason.
 
@@ -299,47 +317,54 @@ Enable it deliberately, on tools you authored, where the tool genuinely needs sc
 Private generated-image result URLs are restricted to the configured provider's **exact scheme, hostname, and port**. Public CDN results still work, but a redirect from a trusted local image provider can no longer reach a *different* private service. NovelAI ZIP image decompression is also bounded to **64 MiB**, with oversized declared output rejected before inflation and actual output required to match the archive metadata.
 
 Relevant to anyone running a local image provider behind a proxy or redirect: a previously-working setup can now fail closed, and that needs to be diagnosable rather than mysterious.
-- Agent packages neither bundle nor import custom tools (see portability above).
 
-**Advising implication:** any instruction to "import this tool bundle and you're done" is wrong for webhook tools. The user must open each imported webhook, inspect its complete URL and hidden-context setting, and turn it on. Include that step. When *sharing* a webhook tool, warn the recipient what origin it points at — Marinara will show them, and an unexplained third-party origin should be a stop sign.
+**Advising implication:** any instruction to "import this tool bundle and you're done" is wrong for webhook and Script tools. The user must open each imported executable tool, inspect its complete URL or script body and its hidden-context setting, and turn it on. Include that step. When *sharing* a webhook tool, warn the recipient what origin it points at — Marinara will show them, and an unexplained third-party origin should be a stop sign.
 
 ## API Endpoints
 
 - `GET /api/custom-tools` — list
+- `GET /api/custom-tools/:id` — one tool
+- `GET /api/custom-tools/capabilities` — `{ scriptExecutionEnabled }` (whether `CUSTOM_TOOL_SCRIPT_ENABLED` is on)
 - `POST /api/custom-tools` — create
 - `PATCH /api/custom-tools/:id` — update
+- `PUT /api/custom-tools/reorder` — `{ toolIds }` in display order
 - `DELETE /api/custom-tools/:id` — delete
+
+Create/update return **409** for a reserved built-in name or a duplicate name and **403** for a Script tool while scripts are disabled. Write routes (create, update, reorder, delete) are privileged — from another device they need `ADMIN_SECRET` + Admin Access.
 
 ## Regex Scripts — Text Transforms, Not Tool Calls
 
 Distinct from custom tools: **Regex Scripts** are SillyTavern-style find/replace transforms that rewrite text as it moves through the pipeline (prompts and/or model output). They don't give the model a callable capability — they mutate strings. Reach for this when a user asks *"how do I transform / clean up / rewrite the prompt or the output text"* (strip a leftover prefix, swap a name on the way in or out, hide a control token, tidy formatting) — **not** a custom tool.
 
 - **What it does:** each script pairs a regex `find` with a `replace`, applied to prompt and/or output text — the SillyTavern regex model.
-- **Scope:** scripts are scoped **per-character** (Character editor's regex section, `CharacterRegexSection.tsx`) and **per-preset** (Presets panel, `PresetsPanel.tsx`). Backed by a `regexScripts` DB table (`regex-scripts.ts`) with seeded defaults (`seed-regex.ts`); applied on the client via `use-apply-regex.ts`.
-- **SillyTavern-import-compatible:** existing ST regex scripts import over, the same way lorebooks/world-info do.
-- **ReDoS safety validator (relaxed in v2.2):** each `find` pattern is screened for catastrophic-backtracking risk before it's saved/run. As of 2.2 the check is less aggressive — **linear, delimiter-bounded field patterns are now allowed** (e.g. `([^|]+)\|([^|]+)\|([^|]+)` for splitting pipe-delimited fields), which previously got flagged. **Overlapping broad-unbounded chains** (the actual catastrophic-backtracking shapes, e.g. stacked `.*`/`.+` with overlapping character classes) are still **rejected**. If a script is refused, rewrite it with bounded classes rather than greedy wildcards.
+- **Where they live:** the global list is **Presets panel → Regexes** (`PresetsPanel.tsx`); character-scoped scripts sit in the Character editor's **Advanced → Regex Scripts** card (`CharacterRegexSection.tsx`); and a script can target specific **prompt presets** (v2.4.1 — see Scoping). Backed by a `regexScripts` DB table (`regex-scripts.ts`) with seeded defaults (`seed-regex.ts`); display-side application runs on the client (`use-apply-regex.ts`), prompt-side on the server. **(v2.5.0, #6755)** **Select regex scripts** in the Regexes list enables bulk **Export**/**Delete** — the way to swap in an updated regex pack.
+- **SillyTavern-import-compatible:** existing ST regex scripts import over, the same way lorebooks/world-info do. Scripts embedded in an ST card import as **Character only** (default) or **Global**. Entries carrying unsupported ST placements are kept, with a warning naming the ignored values, instead of being dropped (preset regexes v2.4.2, #4959; character-scoped v2.4.3, #5036).
+- **ReDoS safety validator (relaxed in v2.2):** each `find` pattern is screened for catastrophic-backtracking risk before it's saved/run. As of 2.2 the check is less aggressive — **linear, delimiter-bounded field patterns are now allowed** (e.g. `([^|]+)\|([^|]+)\|([^|]+)` for splitting pipe-delimited fields), which previously got flagged. **Overlapping broad-unbounded chains** (the actual catastrophic-backtracking shapes, e.g. stacked `.*`/`.+` with overlapping character classes) are still **rejected**. If a script is refused, rewrite it with bounded classes rather than greedy wildcards. Concretely the check refuses patterns over **1,000 chars**, nested quantifiers like `(a+)+`, **two broad wildcards in a row** (`.*.*`, `\s*\w*`), and **three or more broad wildcards anywhere** unless each is a delimiter-bounded negated class (the pipe example above is that exempt case); the error reads "Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns." **(v2.4.3)** A JSON regex-bundle import now *keeps* flagged scripts with a warning instead of skipping them — but application (display **and** prompt) skips a pattern that fails the check, so the kept script does nothing until rewritten. Regexes embedded in a SillyTavern **card** that fail the check (or are empty, or won't compile) are **dropped** at card import — rewrite them and bring them in through **Import regexes from JSON**. A safe script that runs too long on one long message is skipped for that message only and stays enabled.
+- **Replace grammar and macros:** **Replace With** takes `$1`, `$2`… captures and case transforms `\u$1` / `\U$1\E` / `\l$1` / `\L$1\E`. Macros such as `{{user}}`/`{{char}}` resolve in the find pattern (as literal text), the replacement and the trim strings — useful when porting ST scripts that use `{{char}}`. **Live Test** in the editor checks find/replace/trim only — not placement, enabled state, character scope or depth.
 - **Source of truth:** `docs/extending/regex-scripts.md`; schema `packages/shared/src/schemas/regex.schema.ts`.
 
 ### Fields (`regex.schema.ts`)
 
 | Field | What it does |
 |---|---|
-| `findRegex` / `replaceString` / `flags` | The transform itself |
-| `placement` | **AI Output** or **User Input** — which side the script runs on |
+| `findRegex` / `replaceString` / `flags` | The transform itself (`flags` default `gi`) |
+| `placement` | **AI Output** and/or **User Input** (array, at least one) — which side the script runs on |
 | `applyMode` | **Only Display / Only Prompt / Both** — see below |
 | `promptOnly` | Restricts the script to prompt text |
 | `minDepth` / `maxDepth` | Depth window; empty = any depth |
 | `order` | Lower runs first; new scripts get the next free number on save |
-| `trimStrings` | Strings stripped from the match |
+| `trimStrings` | Plain strings deleted from the **whole text** after the replacement runs — every occurrence, even when the pattern matched nothing (macros resolve). Not SillyTavern's strip-from-the-match: a broad trim string deletes that text everywhere the script runs, so keep them specific. |
 | `enabled` | On/off |
 | `targetCharacterIds` | Characters this script is scoped to (see scoping below) |
-| `scriptIds` | Grouping reference |
+| `targetPromptPresetIds` | **(v2.4.1)** Prompt presets this script is limited to; default `[]` = all presets |
+
+(`scriptIds` is not a script field — it's the reorder request's ordered ID list.)
 
 ### ⚠️ Apply Mode — the setting that decides whether the script does anything
 
 Lives in **Advanced Options**, separate from Placement. **A new script starts on Only Display.**
 
-- **Only Display** — changes only what you see on screen. The saved message and the text the model receives on later turns are **unchanged**.
+- **Only Display** — changes only what you see on screen. The saved message and the text the model receives on later turns are **unchanged**. **(v2.4.6, #5994)** Applies during Roleplay streaming too (incomplete fragments are held until a regex matches), not only once the reply completes.
 - **Only Prompt** — changes only what the model receives. Display and saved message unchanged. This is also what the prompt preview shows.
 - **Both** — changes display and prompt.
 
@@ -348,6 +373,8 @@ Lives in **Advanced Options**, separate from Placement. **A new script starts on
 > **Footgun.** For a **User Input** script, Only Display and Both rewrite the message **right before it is sent** — so they change what is actually saved and transmitted, not just how it renders afterward. **There is no display-only mode for your own outgoing messages.** Warn about this before recommending any User Input script.
 
 This also means the default is a trap in the other direction: a user who writes a script to fix what the *model* sees, and leaves Apply Mode alone, gets a script that changes nothing about the prompt.
+
+**Individual group chats (v2.5.0, #6637):** for Only Prompt / Both in a Roleplay **Individual** group chat, placement follows the character *receiving* the prompt — your messages **and other characters' messages** get **User Input** scripts, while the responder's own replies keep **AI Output** scripts. Character restrictions still decide who receives the rewritten prompt.
 
 ### Execution Order and Depth Range
 
@@ -363,10 +390,14 @@ A script can target **one or more** characters, two ways:
 1. **In the editor** — the **Specific Characters** toggle in the **Apply To** card, then pick from the grid. Off = "Applies to all characters." At least one character is required when on. (Backed by `targetCharacterIds`.)
 2. **Per character** — the character's **Advanced** tab has a **Regex Scripts** card listing only that character's scripts, with its own create/import/export. The character must be saved first.
 
-> **Scoped scripts do not run by default.** A per-chat **Scoped Regex Scripts** section appears in Chat Settings only when some character in the chat has scoped scripts, with three modes: **Disabled (the default — only global scripts run)**, **Exclusive** (each scoped script only touches messages from its own character), and **Chat** (every scoped script touches every message). Individual scripts can be toggled per chat underneath. This governs **display-side** scripts; **prompt scripts always follow the character actually generating the reply.**
+It can also target **prompt presets (v2.4.1, #4446)**: the editor's **Specific Prompt Presets** toggle — "Run this script only while one of the selected prompt presets is active"; off = "Applies to all prompt presets" (backed by `targetPromptPresetIds`). **(v2.4.6, #5774)** A prompt preset's editor has a **Regex** tab listing the scripts that target it; linking an existing global script there stops it from running with other presets.
+
+> **Scoped scripts do not run by default.** A per-chat **Scoped Regex Scripts** section appears in Chat Settings only when some character in the chat has scoped scripts, with three modes: **Disabled** (the built-in default — only global scripts run), **Exclusive** (each scoped script only touches messages from its own character), and **Chat** (every scoped script touches every message). Individual scripts can be toggled per chat underneath. This governs **display-side** scripts; **prompt scripts always follow the character actually generating the reply.**
 >
-> This is the most likely cause of "I wrote a character regex and nothing happens."
+> **(v2.4.6, #5774)** The prompt preset's **Regex** tab also sets a **Scoped regex default**: chats using that preset inherit it unless they pick their own mode (Chat Settings shows "Preset default: …" and a **Use preset default** button to return to it).
+>
+> This is the most likely cause of "I wrote a character regex and nothing happens" — check both the chat's mode and its preset's default.
 
 (Regex Scripts were added in an intermediate 2.0.x update and documented in the 2.1 doc refresh — an established surface, not brand-new in 2.1.)
 
-**Related, but not tools either:** for prompt-text logic (conditional macros with `||` / `&&` / parentheses / equality-list shorthand, and the `{{group}}` macro, both v2.3.4), see the Macros coverage in `architecture.md` and `character-cards.md`.
+**Related, but not tools either:** for prompt-text logic (conditional macros with `||` / `&&` / parentheses / equality-list shorthand, and the `{{group}}` macro, both v2.3.4), see `conditional-prompts.md` and the Macros coverage in `architecture.md` and `character-cards.md`.

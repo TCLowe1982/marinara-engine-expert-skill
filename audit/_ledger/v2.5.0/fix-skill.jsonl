@@ -1,0 +1,44 @@
+{"id":4,"action":"handoff","note":"Primary fix is in agents.md (agents fixer)"}
+{"id":5,"action":"handoff","note":"Primary fix is in architecture.md/lorebooks (fixers); SKILL.md:266 already says connection embeddings with local fallback"}
+{"id":10,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Mari server-side authorization gate described as current (removed in v2.4.6)"}
+{"id":13,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Engine Node.js requirement (24+) missing; only dev-mcp's Node 20+ is stated"}
+{"id":14,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: AGENTS.md prompt-logging rule for new agents/generation routes missing"}
+{"id":36,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Game Mode setup wizard choices not described"}
+{"id":57,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: pnpm dev silently reuses an already-running Marinara on PORT 7860"}
+{"id":58,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: AGENTS.md's client rule (read packages/client/.instructions.md) not surfaced"}
+{"id":59,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Regression authoring conventions (discovery suffix, 30 s cap, no kept .test.ts) absent"}
+{"id":60,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Roleplay Commands lists: wrong section label, wrong Sound Cues requirement, Combat command"}
+{"id":61,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Multiplayer gate: SKILL says only the host sets MULTIPLAYER_ENABLED"}
+{"id":62,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Section 0 lets small bug fixes skip the issue; CONTRIBUTING requires one for every PR"}
+{"id":63,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Mode B omits the 'prompt leaf content is verbatim — don't re-add escaping' contributor rul"}
+{"id":64,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: AGENTS.md: read packages/client/.instructions.md before client edits — missing"}
+{"id":65,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: chai-workflow Risky Work and Issue Filing lanes not operationalized"}
+{"id":77,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Text-format <tool_call> parsing dated to 2.5.0"}
+{"id":81,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Share requests with other agents — batching misdated to 2.5.0"}
+{"id":82,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: What CI runs omits the full Node regression lane on every PR, and smoke runs only for PRs "}
+{"id":83,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: CONTRIBUTING touchpoint table now has 8 rows, not 9"}
+{"id":84,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Personal Extension contribution surfaces summarized as top-bar/menu/panel only"}
+{"id":112,"action":"handoff","note":"Primary fix is in architecture.md (architecture fixer)"}
+{"id":164,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Character-ID macros described as 'narrowed' in 2.5.0"}
+{"id":165,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Whisper listed as a 2.4.6 Roleplay Command"}
+{"id":166,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Gacha Forge not identified as an App (restart + Home tab)"}
+{"id":167,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Sandboxed-extension capability list omits estimateTextTokens"}
+{"id":168,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: docs/CONFIGURATION.md Lorebooks table missing from the docs-to-update list"}
+{"id":169,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Release tag check attributed to the regression instead of the validator script"}
+{"id":170,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: guard:installer-artifacts scope overstated"}
+{"id":171,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Notable guide paths omit whole doc folders the skill routes to"}
+{"id":172,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Multiplayer room restrictions understated (only tools named)"}
+{"id":173,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Bunny Review (AI PR reviewer with commit status) not mentioned"}
+{"id":174,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Official package names shortened inconsistently in routing lists"}
+{"id":175,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Dual-install robocopy mirrors the in-repo pnpm store and .dev-mcp state"}
+{"id":176,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: dev-mcp cited with the logging-series issue number"}
+{"id":177,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Mari Permissions Mode label 'Bypass' vs UI 'Bypass permissions'"}
+{"id":178,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Decision guide says Scoped Regex Scripts governs all character-scoped scripts (display-sid"}
+{"id":179,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: AGENTS.md: no .test.ts files may stay in the repo — missing"}
+{"id":180,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Engine vs Marinara-Agents ownership boundary incomplete"}
+{"id":181,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Localization: UI-translation boundary and new-language Engine step missing"}
+{"id":182,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Logging: root log context for long-lived work and the logging regressions missing"}
+{"id":183,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Pre-submission checklist misses container build and PR-evidence location"}
+{"id":184,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Off-by-default feature-switch rule presented as repo-wide policy"}
+{"id":185,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: README claims the skill enforces every CONTRIBUTING/AGENTS rule"}
+{"id":186,"action":"applied","note":"SKILL.md / decision-guide.md / README.md: Security reporting: supported versions and report contents missing"}
