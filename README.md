@@ -17,13 +17,13 @@ It also enforces a mandatory pre-submission checklist before any PR is declared 
 
 **Built for beginners too.** The skill is tuned to assume the user may be brand new to coding, git, or development tooling. Before any significant action — opening a file, running a command, branching, editing code — Claude narrates what it's doing and why in plain-language analogies, then pauses so the user can follow along instead of silently batching changes. Concepts like branches, `pnpm check`, agents, and pattern-matching get explained the first time they come up, then dropped if the user demonstrates fluency. The goal: a hobbyist contributor with zero CS background can ship a working PR.
 
-The skill enforces every rule in CONTRIBUTING.md — server-side logging via Pino, link-the-issue PR bodies, in-same-PR doc updates, and version-drift checks across all 10 version-bearing files. It is synced to **Marinara Engine v2.4.0**.
+The skill enforces the core rules in CONTRIBUTING.md and the engine's AGENTS.md — server-side logging via Pino (with the request-id trail rules), link-the-issue PR bodies, a CHANGELOG `[Unreleased]` entry per change, in-same-PR doc updates, recorded-against-this-revision validation, and version-drift checks across every version-bearing file. It is synced to **Marinara Engine v2.5.0** (2026-10-06), covering every release since v2.4.0 — including 2.4.5, which shipped without a git tag.
 
 ## Scope: user-facing, not engine-interior
 
 This skill is strongest on the **user-facing** side of Marinara — characters, lorebooks, custom tools, agents, macros, themes, Personal Extensions, and picking between them. Its contribution mode covers the *process* of shipping a change (branch, gates, approvals, PR hygiene, reproduce-before-fix) rather than the shape of the codebase.
 
-That distinction is deliberate and worth stating plainly: Marinara is ~483k lines of TS/TSX, and the logic concentrates in a handful of very large files — `game.routes.ts` (~13k lines), `GameSurface.tsx` (~12.2k), `ChatSettingsDrawer.tsx` (~10.2k), `generate.routes.ts` (~9.3k). **None of them has been read end to end for this skill.** The references were built from schemas, docs, changelogs, and targeted greps. For work that means real surgery inside those files, this skill will get you the workflow but not the map — that belongs in a separate, architecture-focused expert skill.
+That distinction is deliberate and worth stating plainly: as of v2.5.0 Marinara's application code is ~673k lines of TS/TSX (up from ~483k at v2.4.0), and the logic concentrates in a handful of very large files — `game.routes.ts` (~15.1k lines), `generate.routes.ts` (~14.2k), `GameSurface.tsx` (~13.5k), `ChatSettingsDrawer.tsx` (~11.1k), `SettingsPanel.tsx` (~9.6k), `mari-db.service.ts` (~9.3k). **None of them has been read end to end for this skill.** The skill does point contributors at the engine's own `tools/dev-mcp` server, which lets a coding agent inspect a running engine's prompts and logs instead of guessing. The references were built from schemas, docs, changelogs, and targeted greps. For work that means real surgery inside those files, this skill will get you the workflow but not the map — that belongs in a separate, architecture-focused expert skill.
 
 This gap wasn't a deliberate exclusion so much as an unnoticed one: the skill grew out of user-facing questions, and nothing forced the engine-interior gap to surface until someone actually tried to modify the engine with it and found the knowledge thin.
 
@@ -52,9 +52,9 @@ This structure acknowledges that the alternative — confident-sounding answers 
 ## Included materials
 
 - `SKILL.md` — main skill instructions covering both modes
-- `references/` — seven condensed reference files (architecture, character cards, lorebooks, custom tools, extensions, agents, decision guide)
+- `references/` — nine condensed reference files: architecture, character cards, lorebooks, custom tools, extensions, agents, decision guide, and two added at v2.5.0 — **conditional prompts & Decision models**, and **Game Mode rulesets**
 - `audit/` — per-release ledger-pattern audits of the skill against the engine, with the raw per-pass slices under `audit/_ledger/<version>/`
-- `assets/` — starter templates for character cards, custom agents (with the v2.4.0 `contextSources` block), lorebook entries, webhook tools, and sandboxed Personal Extensions. `SKILL.md` routes to these when the user asks for an implementation.
+- `assets/` — starter templates for character cards (with the Image Appearance Override fields), custom agents (with an explicit `contextSources` block), lorebook entries (0–100 probability, Decision fields), webhook tools, and sandboxed Personal Extensions. `SKILL.md` routes to these when the user asks for an implementation.
 
 ## Installing & using the skill
 

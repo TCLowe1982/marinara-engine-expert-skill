@@ -3,17 +3,18 @@
   "spec_version": "2.0",
   "data": {
     "name": "Character Name",
+    "summary": "Optional one-line overview (max 500 characters) shown in the Character Library and card previews. Not sent to the model.",
     "description": "Primary description: who this character is, their role, their expertise (if an assistant), and key personality traits. 150-400 words usually. For a domain-expert assistant, this is where you establish what they know and how they frame their help. For a roleplay character, this is the richest description of the entity.",
     "personality": "Speech patterns, quirks, tone. How they respond to users. If they're sarcastic, caring, blunt, flowery — say it here with examples. 50-200 words. Avoid MBTI/astrology alone; give concrete behavioral cues the model can mimic.",
     "scenario": "The setting or framing for interactions. For an assistant: 'User has just opened the app and needs help with X.' For a roleplay: the opening situation. Can be short — 1-3 sentences.",
     "first_mes": "The character's opening message. Make it compelling — this is what the user sees first. For an assistant, list what they can help with. For a roleplay, establish voice and set the scene. Should showcase the personality.",
     "mes_example": "<START>\n{{user}}: Example user line\n{{char}}: Example character response that demonstrates voice, formatting preferences, and response length.\n<START>\n{{user}}: Second example\n{{char}}: Second response.",
-    "creator_notes": "Internal notes for other people who might import this card. Not sent to the model.",
+    "creator_notes": "Internal notes for other people who might import this card. Not sent to the model (unless another card pulls this one in with a Character-ID macro).",
     "system_prompt": "",
     "post_history_instructions": "",
     "tags": ["assistant", "custom"],
     "creator": "Your name",
-    "character_version": "1.0.0",
+    "character_version": "1.0",
     "alternate_greetings": [],
     "extensions": {
       "talkativeness": 0.5,
@@ -26,14 +27,28 @@
       },
       "backstory": "Optional deeper backstory. Not always sent to the model depending on preset.",
       "appearance": "Physical description — important for selfie generation and sprite/image generation. Be concrete: height, build, hair, eye color, typical clothing.",
+      "imageAppearanceEnabled": false,
+      "imageAppearance": "Optional image-prompt-only description as short tags (e.g. 1girl, solo, silver hair, green eyes, slim). Used instead of appearance in image prompts only when imageAppearanceEnabled is true and this is non-empty; leave out clothing that changes from scene to scene.",
       "nameColor": "",
       "dialogueColor": "",
       "boxColor": "",
       "conversationStatus": "online",
+      "phoneticName": "",
       "rpgStats": {
         "enabled": false,
-        "attributes": [],
-        "hp": { "value": 0, "max": 0 }
+        "pools": [
+          { "name": "HP", "value": 100, "max": 100, "color": "#ef4444" },
+          { "name": "MP", "value": 100, "max": 100, "color": "#3b82f6" }
+        ],
+        "attributes": [
+          { "name": "STR", "value": 10 },
+          { "name": "DEX", "value": 10 },
+          { "name": "CON", "value": 10 },
+          { "name": "INT", "value": 10 },
+          { "name": "WIS", "value": 10 },
+          { "name": "CHA", "value": 10 }
+        ],
+        "hp": { "value": 100, "max": 100 }
       }
     },
     "character_book": null
