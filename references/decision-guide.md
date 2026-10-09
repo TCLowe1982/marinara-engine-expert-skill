@@ -11,7 +11,9 @@ Before architecture, pick the **mode** the experience runs in — this is orthog
 - **Game** — GM-driven interactive fiction (Game Mode): the engine runs a game master over narration, storyboards, and scene beats. Pick it for structured, quest-like play. As of 2.3, setup includes a **Combat Preference** — classic narrative combat or tactical grid battles on a deterministic seeded engine with four difficulty levels — chosen in the setup wizard and changeable later via Chat Settings → Combat Style; game setups also export/import as reusable versioned `.marinara-game-setup.json` bundles that refill the New Game wizard.
 - **Noodle (v2.2)** — Marinara's fake social network: invited characters (and optional random users) post, reply, poll, like, repost, and mention each other on a persistent, refreshing timeline; **personas participate directly**, and social memory carries over into Conversation/Roleplay/Game. Pick it for social-feed / timeline personas — a living multi-character social simulation rather than a direct chat. As of 2.3, the **Noodle Prompt** is user-editable at the top of Noodle Settings (full-screen editor, one-click default restore), Professor Mari is excluded from the timeline by default, and world/lore context and chat carryover each get a fixed 8,192-token budget. See `references/architecture.md` for the full Noodle section.
 
-## The Nine Questions
+## The Decision Questions
+
+Walk them in order and stop at the first that fits. Numbering is not contiguous — question 6 splits into **6** (how the UI *looks*) and **6b** (adding UI *functionality*), because v2.3.5 restored a user-side path for the latter. SKILL.md's decision hierarchy folds 6 and 6b into a single three-tier item, so the two lists expand the same territory rather than mapping one-to-one.
 
 ### 1. Is the entire knowledge set small and completely stable?
 **Small** = under ~2000 tokens of reference material. **Stable** = won't change for months.
@@ -70,7 +72,7 @@ See `references/custom-tools.md` for full execution type breakdown.
 ### 5. Does something need to happen **automatically on every turn**?
 Per-turn automation = not user-initiated, not tool-triggered — just runs in the background as part of message generation.
 
-**First, check the official catalog (v2.3).** The 29 official downloadable agent packages (Agents → Download Agents) already cover common per-turn jobs — trackers, continuity checking, card evolution, and more. Recommend installing an official package before designing a custom agent; fresh installs contain no optional agents, so include the install step. As of 2.3.4 the official catalog is not the only install source: **custom GitHub agent repositories** (#3861) can distribute third-party packages — disabled by default, manual preview/apply (no auto-sync), and an explicit per-repo trust confirmation. Only recommend a custom repo the user already trusts. Only if nothing in the catalog (or a trusted repo) fits:
+**First, check the official catalog (v2.3+).** The **31** official downloadable agent packages (Agents → Download Agents) already cover common per-turn jobs — trackers, continuity checking, card evolution, and more. Recommend installing an official package before designing a custom agent; fresh installs contain no optional agents, so include the install step. As of 2.3.4 the official catalog is not the only install source: **custom GitHub agent repositories** (#3861) can distribute third-party packages — disabled by default, manual preview/apply (no auto-sync), and an explicit per-repo trust confirmation. Only recommend a custom repo the user already trusts. Only if nothing in the catalog (or a trusted repo) fits:
 
 → **Custom agent**, placed in the right phase:
 - **`pre_generation`** — runs before the main response. Use for: injecting context, reviewing the prompt, rewriting directives.
@@ -79,9 +81,13 @@ Per-turn automation = not user-initiated, not tool-triggered — just runs in th
 
 Agents cost real tokens and latency every turn. Only use them when the job genuinely needs to happen on every message. Custom agents run in all three modes (Conversation, Roleplay, Game) — but only while the chat's **Enable Agents** master toggle is on; if an agent "isn't firing," check that toggle first.
 
+> **⚠️ v2.4.0 (#4305) — always specify context sources.** A custom agent receives **chat history only** by default. `characters`, `persona`, `activatedLorebookEntries`, `chatSummary`, `authorNotes`, `trackerData`, and `recalledMemories` are each **off** until enabled in that agent's **Context Sources**. Built-in/package agents are unaffected. So "a continuity checker" is incomplete advice — it needs `characters` + `activatedLorebookEntries` + `chatSummary` to do its job. If a user reports an agent that "stopped understanding the character," this is the first thing to check. Also note *(#4360)* Run Interval now counts **both user and assistant messages**, so an existing interval fires about twice as often as it used to.
+
 **Fits:** A "tone enforcer" that rewrites every message to stay in-period for a historical RP; a "combat tracker" that extracts damage numbers from narration into structured HP; a "continuity checker" that flags contradictions.
 
 **Doesn't fit:** Things that only need to happen occasionally (those should be tools the model calls when needed).
+
+**Before rejecting an agent on cost, gate it.** Set **Activation Keywords** (up to 100 phrases) and a **Scan Depth** (default 5, max 200) and the agent runs only when one of those keywords appears in that many recent messages — empty keywords means run every turn, which is the default and the reason unconfigured agents feel expensive. Combined with a narrow `contextSources` set, an occasional-but-automatic job is perfectly viable as an agent. "Only sometimes" is not automatically a tool.
 
 See `references/agents.md` for phases, default prompts, custom agent creation.
 
@@ -92,21 +98,41 @@ Look-and-feel = colors, fonts, backgrounds, spacing, restyling existing elements
 
 → **Native Appearance settings first, then a custom theme.** v2.0 made much theming native — accent color, RGB/pulse, app background + gradients, chat text colors, font, and "Reset Appearance." For styling beyond the native controls, use the server-synced **custom themes** system (`/api/themes`, managed under Settings → Addons). Professor Mari can also generate themes for you.
 
-**Client extensions were REMOVED in v2.3.4.** There is no DOM injection, no `marinara` API, no user CSS/JS loading — and the first 2.3.4 startup permanently erases any retained extension records and extension storage. Don't recommend building one, and warn users still on pre-2.3.4 that extension data won't survive the upgrade. If the user asks "where did extensions go?", `references/extensions.md` is kept as a historical tombstone with the migration routing.
-
 **Fits:** Custom color schemes, restyled chat bubbles, a themed look matching a character's world.
 
-**Doesn't fit:** Functional UI additions (new buttons, panels, widgets, indicators) — as of 2.3.4 there is no user-side script path for those. They route to a **downloadable capability package** (capability API 1.3) contributed through the Marinara-Agents catalog, a **custom GitHub agent repository** (#3861) for third-party distribution, or an **upstream PR** to the engine — forking is only needed for what the capability API can't express.
+**Doesn't fit:** Functional UI additions — those are the next question.
+
+---
+
+### 6b. Does the user want to **add UI functionality** (a button, panel, widget, indicator)?
+
+> **⚠️ Corrected guidance.** Client extensions were removed in v2.3.4, but **v2.3.5 reintroduced them as sandboxed Personal Extensions**, and v2.4.0 expanded the API. Earlier advice that "there is no user-side script path" is **obsolete**. There is one again — it's just narrow and permissioned.
+
+→ **A Personal Extension** (Settings > Addons). Ask **Professor Mari** to draft it; the user reads the code, approves the exact SHA-256 hash, and enables it. It runs in a sandboxed Worker and can register top-bar buttons, Extensions-menu items, and right-side panels via `marinara.ui.registerContribution(...)`, built from a fixed control vocabulary (heading, text, pre, button, input, select, toggle, slider, color, spacer).
+
+**Fits:** A per-chat notepad, a settings-style control panel for something the user tracks by hand, a small dashboard keyed to the active chat or character, a launcher for a multi-step workflow whose state lives in `marinara.storage`.
+
+**Doesn't fit — and say so plainly:** anything needing messages, presets, lorebooks, undeclared card fields, chat metadata, DOM access, the database, or the network. The sandbox is a capability allowlist. Those need either a **new broker capability in the engine** (an upstream PR, Mode B) or the un-sandboxed **Full page access** External Extension path — which requires `ENABLE_EXTERNAL_EXTENSIONS=true` plus a Danger Zone opt-in, cannot be authored by Mari, and carries browser-console-level authority.
+
+Note the read-only **context API (v5)**: chat and character IDs are always available (good for namespacing private storage), while bounded *card fields* require the approved `read_active_characters` / `read_active_persona` permissions.
+
+**Platform caveat:** Server Extensions need macOS Seatbelt or Linux `bwrap` and are **unavailable on Windows and Android** — check the OS before recommending one.
+
+**Distribution:** still prefer a **downloadable capability package** (capability API 1.3) via the Marinara-Agents catalog, or a **custom GitHub agent repository** (#3861), for anything meant for other people — an exported extension lands in the recipient's gated External Extensions section and must be hash-approved there.
+
+See `references/extensions.md` before committing to any extension design.
 
 ---
 
 ### 7. Does the solution need to cross chats, persist structured state, or integrate deeply with external systems?
 
-→ **Webhook tool + your own backend.** The engine's own persistence is scoped to chats, characters, personas, lorebooks, presets. If you need structured state outside that (CRM data, analytics, cross-user aggregation, ML pipelines, real databases) — you run that infrastructure yourself and expose it to the character via webhook tools.
+> **Check variable macros first.** The engine *does* have in-engine state: `{{setvar::name::value}}` writes, `{{getvar::name}}` reads, and `{{addvar}}`/`{{incvar}}`/`{{decvar}}` do arithmetic (`macro-engine.ts`; `docs/prompts/macros.md`). Per-chat counters, flags, thresholds, and small structured values — an affection score, a day counter, whether the party has met the duke — belong here, not behind a backend. Recommending infrastructure for state a macro handles is over-engineering, and it was this guide's default answer for too long.
 
-**Fits:** "My support assistant needs to log every conversation to our CRM," "the character needs to remember things globally across all my users," "I want vector search across 10 years of company docs."
+→ Once variables genuinely aren't enough: **Webhook tool + your own backend.** The engine's own persistence is scoped to chats, characters, personas, lorebooks, presets. If you need structured state outside that (CRM data, analytics, cross-user aggregation, ML pipelines, real databases) — you run that infrastructure yourself and expose it to the character via webhook tools.
 
-**Doesn't fit:** Anything inside the engine's native scope — use the native features.
+**Fits (genuinely beyond variables):** "My support assistant needs to log every conversation to our CRM," "the character needs to remember things globally across all my users," "I want vector search across 10 years of company docs."
+
+**Doesn't fit:** Anything inside the engine's native scope — use the native features. Small per-chat state is variable macros; per-chat UI state for a tool the user invokes is a Personal Extension's private `marinara.storage` (see 6b).
 
 ---
 
@@ -130,6 +156,12 @@ The surface depends on where the video should appear:
 ---
 
 ### 9. Does the user just need to rewrite/clean up prompt or output *text*? (Regex Scripts)
+
+> **Two settings decide whether the script does anything at all — name both.**
+> **Apply Mode** (Advanced Options) defaults to **Only Display**, which changes on-screen text only and leaves the prompt untouched. If the point is to change what the *model* reads, that must be **Only Prompt** or **Both**. And for a **User Input** script, Only Display/Both rewrite the message *before it is sent*, changing what is saved and transmitted — there is no display-only mode for outgoing user messages.
+> **Scoped Regex Scripts** (Chat Settings) defaults to **Disabled**, meaning character-scoped scripts don't run at all; the modes are Disabled / Exclusive / Chat. This is the usual cause of "I wrote a character regex and nothing happened."
+>
+> See `references/custom-tools.md` for the full field set.
 Text transform = find/replace on the strings flowing through the pipeline — strip a leftover prefix, swap a name on the way in or out, hide a control token, tidy formatting. **No** callable capability, **no** DOM change — just string rewriting.
 
 → **Regex Scripts** (SillyTavern-style). Scoped **per-character** and **per-preset**; a script is a regex `find` + `replace` applied to prompt and/or model output. SillyTavern regex scripts import over directly. This is a distinct modding surface — don't misuse a custom tool (Q4) or a theme (Q6) for text transforms.
@@ -156,7 +188,7 @@ Most real projects are two or three of these surfaces together. Don't recommend 
 **Character card** + **multiple custom tools** (one per action the character can take) + optional **custom agent** to nudge the character to use the tools naturally.
 
 ### "Immersive RP character"
-**Character card** + **lorebook** (world info) + **post-processing agent** (state tracker) + optional **parallel agent** (image generation, music) + the native **Tracker Panel** for the HUD (improved in 2.3.4 — no extension needed; extensions were removed).
+**Character card** + **lorebook** (world info) + **post-processing agent** (state tracker) + optional **parallel agent** (image generation, music) + the native **Tracker Panel** for the HUD (improved in 2.3.4 — no extension needed for the HUD itself; *(v2.4.0)* tracker stats can also use an optional radial-gauge layout with editable icons, percentage readouts, and low-stat warnings).
 
 ### "Knowledge base over a large structured dataset" (300 WordPress sites, customer records, etc.)
 **Character card** (teaches the model how to look things up) + **webhook custom tool** (`lookup_by_id`, `search_by_field`, `list_all`) + **your own backend** (the actual data store). Do NOT try to put the dataset itself in the lorebook unless it's small and the lookup pattern is keyword-shaped.

@@ -263,6 +263,46 @@ Tools are attached to chats via chat settings. A tool created in the panel is av
 
 **Tool portability (v2.3.4, #3953):** custom tools do **not** travel with agent files. Exported agents no longer bundle custom function definitions, and imported agent files cannot install functions, grant themselves tool access, or impersonate curated agent types. A recipient of a shared agent must **re-create (or already have) the tools and explicitly attach them** after import — any recommendation involving a shared agent file needs that step spelled out.
 
+### UI naming: "Functions"
+
+In the interface, custom tools are labelled **Functions** — the section under Chat Settings has a wrench icon, and the actions read **Create function**, **Add Functions**, **Import functions from ZIP or JSON**, **Export functions to ZIP**. Use the UI wording when giving click-path instructions, and "custom tool" when talking about the schema. With **Enable Tool Use** on and no tools added below, a chat can use *all* globally enabled tools (built-ins like dice rolls and lorebook search, plus every enabled custom tool); adding specific tools narrows it to that set.
+
+### ⚠️ Import security (v2.4.0)
+
+**Imported webhook tools always arrive disabled, with "Include hidden chat context" forced off** — regardless of what the imported file requested. After import, Marinara shows the webhook's **destination origin** and the permissions the file asked for, so the user can inspect the full configuration before deliberately enabling it.
+
+- **Static and Script tools keep their imported enabled state.** Only webhooks are force-disabled — they're the ones that can exfiltrate to a third party.
+- An import **skips any tool whose name clashes** with an existing tool or a built-in tool name.
+
+### Reserved names
+
+A custom tool name cannot match a **built-in** tool name. Built-ins include `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search`, and `update_about_me`, among others. Attempting to save one yields:
+
+```text
+"your_name" is a reserved built-in tool name.
+```
+
+Two custom tools also cannot share a name. This is the other half of the lowercase-snake_case rule — name collisions are the most common confusing save failure.
+
+### Attaching tools to an agent
+
+Tools attach to a specific **agent** as well as to a chat (`docs/extending/custom-tools.md` → "Attaching tools to an agent") — that's how a custom agent gains a callable capability. Remember tools do **not** travel with an exported agent file (#3953): the recipient must already have, or re-create, the tools and attach them explicitly.
+
+### `includeHiddenContext`
+
+The setting granting a tool hidden chat context beyond its declared parameters. Defaults to `false`, and **v2.4.0 forcibly strips it from imported webhook tools** regardless of what the file requested — precisely because a webhook can forward whatever it receives to a third party.
+
+Enable it deliberately, on tools you authored, where the tool genuinely needs scene context the model would otherwise have to restate in its arguments. Never enable it on an imported webhook without reading the destination URL first — the Functions panel surfaces the origin for exactly this reason.
+
+### Generated-image result URL restriction (v2.4.0)
+
+Private generated-image result URLs are restricted to the configured provider's **exact scheme, hostname, and port**. Public CDN results still work, but a redirect from a trusted local image provider can no longer reach a *different* private service. NovelAI ZIP image decompression is also bounded to **64 MiB**, with oversized declared output rejected before inflation and actual output required to match the archive metadata.
+
+Relevant to anyone running a local image provider behind a proxy or redirect: a previously-working setup can now fail closed, and that needs to be diagnosable rather than mysterious.
+- Agent packages neither bundle nor import custom tools (see portability above).
+
+**Advising implication:** any instruction to "import this tool bundle and you're done" is wrong for webhook tools. The user must open each imported webhook, inspect its complete URL and hidden-context setting, and turn it on. Include that step. When *sharing* a webhook tool, warn the recipient what origin it points at — Marinara will show them, and an unexplained third-party origin should be a stop sign.
+
 ## API Endpoints
 
 - `GET /api/custom-tools` — list
@@ -278,7 +318,54 @@ Distinct from custom tools: **Regex Scripts** are SillyTavern-style find/replace
 - **Scope:** scripts are scoped **per-character** (Character editor's regex section, `CharacterRegexSection.tsx`) and **per-preset** (Presets panel, `PresetsPanel.tsx`). Backed by a `regexScripts` DB table (`regex-scripts.ts`) with seeded defaults (`seed-regex.ts`); applied on the client via `use-apply-regex.ts`.
 - **SillyTavern-import-compatible:** existing ST regex scripts import over, the same way lorebooks/world-info do.
 - **ReDoS safety validator (relaxed in v2.2):** each `find` pattern is screened for catastrophic-backtracking risk before it's saved/run. As of 2.2 the check is less aggressive — **linear, delimiter-bounded field patterns are now allowed** (e.g. `([^|]+)\|([^|]+)\|([^|]+)` for splitting pipe-delimited fields), which previously got flagged. **Overlapping broad-unbounded chains** (the actual catastrophic-backtracking shapes, e.g. stacked `.*`/`.+` with overlapping character classes) are still **rejected**. If a script is refused, rewrite it with bounded classes rather than greedy wildcards.
-- **Source of truth:** `docs/extending/regex-scripts.md`.
+- **Source of truth:** `docs/extending/regex-scripts.md`; schema `packages/shared/src/schemas/regex.schema.ts`.
+
+### Fields (`regex.schema.ts`)
+
+| Field | What it does |
+|---|---|
+| `findRegex` / `replaceString` / `flags` | The transform itself |
+| `placement` | **AI Output** or **User Input** — which side the script runs on |
+| `applyMode` | **Only Display / Only Prompt / Both** — see below |
+| `promptOnly` | Restricts the script to prompt text |
+| `minDepth` / `maxDepth` | Depth window; empty = any depth |
+| `order` | Lower runs first; new scripts get the next free number on save |
+| `trimStrings` | Strings stripped from the match |
+| `enabled` | On/off |
+| `targetCharacterIds` | Characters this script is scoped to (see scoping below) |
+| `scriptIds` | Grouping reference |
+
+### ⚠️ Apply Mode — the setting that decides whether the script does anything
+
+Lives in **Advanced Options**, separate from Placement. **A new script starts on Only Display.**
+
+- **Only Display** — changes only what you see on screen. The saved message and the text the model receives on later turns are **unchanged**.
+- **Only Prompt** — changes only what the model receives. Display and saved message unchanged. This is also what the prompt preview shows.
+- **Both** — changes display and prompt.
+
+**Pick by intent:** tidying how a reply *looks* → Only Display (safest, cosmetic). Stripping a tag the model keeps copying → Only Prompt. Both surfaces → Both.
+
+> **Footgun.** For a **User Input** script, Only Display and Both rewrite the message **right before it is sent** — so they change what is actually saved and transmitted, not just how it renders afterward. **There is no display-only mode for your own outgoing messages.** Warn about this before recommending any User Input script.
+
+This also means the default is a trap in the other direction: a user who writes a script to fix what the *model* sees, and leaves Apply Mode alone, gets a script that changes nothing about the prompt.
+
+### Execution Order and Depth Range
+
+Both in **Advanced Options**.
+
+- **Execution Order** — a number; lower runs first. Matters when several scripts match the same text. New scripts start at 0 and the app assigns the next free number on save, so fresh scripts don't collide. Rows are drag-reorderable in the **Regexes** list.
+- **Depth Range** — `Min`/`Max`, counting **backward from the newest message**: newest is depth **0**, the one before it 1, and so on. Leave both empty to run at any depth. **Saving is blocked if min > max.**
+
+### Scoping — richer than "per-character"
+
+A script can target **one or more** characters, two ways:
+
+1. **In the editor** — the **Specific Characters** toggle in the **Apply To** card, then pick from the grid. Off = "Applies to all characters." At least one character is required when on. (Backed by `targetCharacterIds`.)
+2. **Per character** — the character's **Advanced** tab has a **Regex Scripts** card listing only that character's scripts, with its own create/import/export. The character must be saved first.
+
+> **Scoped scripts do not run by default.** A per-chat **Scoped Regex Scripts** section appears in Chat Settings only when some character in the chat has scoped scripts, with three modes: **Disabled (the default — only global scripts run)**, **Exclusive** (each scoped script only touches messages from its own character), and **Chat** (every scoped script touches every message). Individual scripts can be toggled per chat underneath. This governs **display-side** scripts; **prompt scripts always follow the character actually generating the reply.**
+>
+> This is the most likely cause of "I wrote a character regex and nothing happens."
 
 (Regex Scripts were added in an intermediate 2.0.x update and documented in the 2.1 doc refresh — an established surface, not brand-new in 2.1.)
 

@@ -2,14 +2,14 @@
 
 A Claude skill that handles two kinds of Marinara Engine work:
 
-- **Ideation** — designing characters, lorebooks, custom tools, agents, and extensions for users *building things in* Marinara.
+- **Ideation** — designing characters, lorebooks, custom tools, agents, themes, and Personal Extensions for users *building things in* Marinara.
 - **Contribution** — triaging PRs, reproducing bugs, diagnosing issues, and shipping focused changes to *the Marinara codebase itself*.
 
 The skill detects which mode the user needs from context and switches its workflow accordingly.
 
 ## What it does
 
-**In ideation mode**, the skill identifies which Marinara Engine surfaces the user's idea touches (character card, lorebook, custom tool, agent, extension), presents 2–4 architecture options with honest tradeoffs, recommends one with rationale, then offers to build it — but first asks for a concrete behavioral spec rather than letting the model guess.
+**In ideation mode**, the skill identifies which Marinara Engine surfaces the user's idea touches (character card, lorebook, custom tool, agent, theme, Personal Extension), presents 2–4 architecture options with honest tradeoffs, recommends one with rationale, then offers to build it — but first asks for a concrete behavioral spec rather than letting the model guess.
 
 **In contribution mode**, the skill triages open PRs by urgency, requires reproducing bugs on a real local install before proposing fixes, drives diagnosis through the dev console + network tab + server logs, and walks through implementations one focused change at a time.
 
@@ -17,7 +17,27 @@ It also enforces a mandatory pre-submission checklist before any PR is declared 
 
 **Built for beginners too.** The skill is tuned to assume the user may be brand new to coding, git, or development tooling. Before any significant action — opening a file, running a command, branching, editing code — Claude narrates what it's doing and why in plain-language analogies, then pauses so the user can follow along instead of silently batching changes. Concepts like branches, `pnpm check`, agents, and pattern-matching get explained the first time they come up, then dropped if the user demonstrates fluency. The goal: a hobbyist contributor with zero CS background can ship a working PR.
 
-The skill enforces every rule in CONTRIBUTING.md — server-side logging via Pino, link-the-issue PR bodies, in-same-PR doc updates, and version-drift checks across all 10 version-bearing files.
+The skill enforces every rule in CONTRIBUTING.md — server-side logging via Pino, link-the-issue PR bodies, in-same-PR doc updates, and version-drift checks across all 10 version-bearing files. It is synced to **Marinara Engine v2.4.0**.
+
+## Scope: user-facing, not engine-interior
+
+This skill is strongest on the **user-facing** side of Marinara — characters, lorebooks, custom tools, agents, macros, themes, Personal Extensions, and picking between them. Its contribution mode covers the *process* of shipping a change (branch, gates, approvals, PR hygiene, reproduce-before-fix) rather than the shape of the codebase.
+
+That distinction is deliberate and worth stating plainly: Marinara is ~483k lines of TS/TSX, and the logic concentrates in a handful of very large files — `game.routes.ts` (~13k lines), `GameSurface.tsx` (~12.2k), `ChatSettingsDrawer.tsx` (~10.2k), `generate.routes.ts` (~9.3k). **None of them has been read end to end for this skill.** The references were built from schemas, docs, changelogs, and targeted greps. For work that means real surgery inside those files, this skill will get you the workflow but not the map — that belongs in a separate, architecture-focused expert skill.
+
+This gap wasn't a deliberate exclusion so much as an unnoticed one: the skill grew out of user-facing questions, and nothing forced the engine-interior gap to surface until someone actually tried to modify the engine with it and found the knowledge thin.
+
+### Using this for engine-side work? Please open an issue
+
+If you reach for this skill to change the Marinara codebase itself and it comes up short, **that's useful signal — [open an issue](../../issues/new?template=engine-knowledge-gap.md) saying which area let you down.** Concretely helpful:
+
+- **Which file or subsystem** you were working in (`generate.routes.ts`, the agent pipeline, Game state, the prompt assembler, Noodle, the capability API…).
+- **What you needed to know** that the skill couldn't tell you — a call path, a data flow, where a piece of state actually lives, which of several similar functions is the live one.
+- **What you had to do instead** — usually "read N thousand lines to find out," which is exactly the cost worth eliminating.
+
+Engine-interior coverage will get built where people actually hit the wall, rather than by guessing which of a handful of very large files to document first. Reports beat speculation here.
+
+**Two trackers, either is fine.** The link above resolves to whichever copy of the repo you're reading. The canonical tracker for the skill as a whole is the upstream repo, [cha1latte/marinara-engine-expert-skill](https://github.com/cha1latte/marinara-engine-expert-skill/issues) — file there if you want the original author to see it. This fork also takes issues, and is where the per-release engine syncs and audits happen, so reports about *current* engine coverage land closest to the work here.
 
 ## Knowledge architecture
 
@@ -33,7 +53,8 @@ This structure acknowledges that the alternative — confident-sounding answers 
 
 - `SKILL.md` — main skill instructions covering both modes
 - `references/` — seven condensed reference files (architecture, character cards, lorebooks, custom tools, extensions, agents, decision guide)
-- `assets/` — JSON and Markdown starter templates for character cards, custom agents, lorebook entries, and webhook tools
+- `audit/` — per-release ledger-pattern audits of the skill against the engine, with the raw per-pass slices under `audit/_ledger/<version>/`
+- `assets/` — starter templates for character cards, custom agents (with the v2.4.0 `contextSources` block), lorebook entries, webhook tools, and sandboxed Personal Extensions. `SKILL.md` routes to these when the user asks for an implementation.
 
 ## Installing & using the skill
 
@@ -55,14 +76,14 @@ git clone https://github.com/<owner>/marinara-engine-expert-skill.git \
 git -C ~/.claude/skills/marinara-engine-expert pull
 ```
 
-Restart Claude Code (or reload skills) afterward. The skill then activates automatically when you mention Marinara Engine / Professor Mari / SpicyMarinara, or describe building characters, lorebooks, tools, agents, or extensions — in any project that can see the skills directory.
+Restart Claude Code (or reload skills) afterward. The skill then activates automatically when you mention Marinara Engine / Professor Mari / SpicyMarinara, or describe building characters, lorebooks, tools, agents, themes, or Personal Extensions — in any project that can see the skills directory.
 
 The extra repo files (`README.md`, `audit/`, etc.) are harmless: Claude Code only loads `SKILL.md` and the files it references.
 
 ## When it activates
 
-The skill triggers when users mention Marinara Engine, Professor Mari, SpicyMarinara, or describe building characters, tools, extensions, or agents for AI chat frontends. It also triggers for contributor work — reviewing PRs, fixing bugs, or shipping changes to the Marinara repo.
+The skill triggers when users mention Marinara Engine, Professor Mari, SpicyMarinara, or describe building characters, tools, themes, extensions, or agents for AI chat frontends. It also triggers for contributor work — reviewing PRs, fixing bugs, or shipping changes to the Marinara repo.
 
 ## License
 
-MIT. Pull requests welcome, especially for outdated content as the engine evolves.
+MIT. Pull requests welcome, especially for outdated content as the engine evolves — and issues are just as welcome for **engine-side knowledge gaps** (see [Scope](#scope-user-facing-not-engine-interior)).
